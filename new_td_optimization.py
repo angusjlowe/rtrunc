@@ -18,21 +18,29 @@ class NewTDExperiment():
         self.verbose = verbose
         self.fid = topKNorm(k, v)
 
+        # expensive sums
+        self.a = np.sum(v[:k-1]**2)
+        self.b0 = np.sum(v[k-1:])
+        self.b1 = np.sum(v[k-1:])
+        self.c = np.sum(v[k-1:]**2)
+
     def getCubicSols(self,r,l):
         # with a,b,c,d,e defined as below, the cubic eqn to be satisfied becomes
         # a/(1+x) + b/(d+ex) + c/x - 1 = 0, which is equivalent to the polynomial
         # -ex^3+(b-d-e+ae+ce)x^2+(b-d+ad+c(d+e))x + cd = 0.
-        v=self.v
-        k=self.k
-        a, b, c, d, e = np.sum(v[:k-r-1]**2), np.sum(v[k-r-1:l-1])**2, np.sum(v[l-1:]**2), r+1, l-k+r
+        k = self.k
+        a = self.a
+        b = (self.b0 - self.b1)**2
+        c = self.c
+        d, e = r+1, l-k+r
         c0, c1, c2, c3 = c*d, (b-d+a*d+c*(d+e)), (b-d-e+a*e+c*e), -e
         cubic = Polynomial([c0, c1, c2, c3])
         return list(filter(lambda x: np.isreal(x) and 0<=x<=1, cubic.roots()))
 
     def theta(self,r,l,t):
-        v=self.v
         k=self.k
-        return np.sum(v[k-r-1:l-1])/(r+1+(l-k+r)*t)
+        Trl = self.b0 - self.b1
+        return Trl/(r+1+(l-k+r)*t)
     
     def getMartginals(self):
         r=self.r
@@ -82,17 +90,27 @@ class NewTDExperiment():
         return m
     
     # return optimal meas and td value as tuple (m,td)
-    # TODO: the above applies to edge cases for r and ell!
-    # Related to other loose end
     def getOptimalTDMeas(self):
-        k=self.k
-        n=self.n
+        v = self.v
+        k = self.k
+        n = self.n
+        b1init = self.b1
+        cinit = self.c
         for r in range(0,k):
+            if r > 0:
+                self.a -= v[k-r-1]**2
+                self.b0 += v[k-r-1]
+            self.b1 = b1init
+            self.c = cinit
             for l in range(k,n+2):
+                if l > k:
+                    self.b1 -= v[l-2]
+                    self.c -= v[l-2]**2
+                if l == n+1:
+                    self.b1 = 0
+                    self.c = 0
                 ts = self.getCubicSols(r, l)
                 for t in ts:
-                    #print(t)
-                    #print(self.rlTest(r,l,t))
                     if self.rlTest(r,l,t):
                         m = self.formMeas(r,l,t)
                         self.r=r
@@ -111,17 +129,19 @@ if __name__ == '__main__':
     import matplotlib.pyplot as plt
     n = int(input("n: "))
     k = int(input("k: "))
+    
     # normal, random
-    #v = np.random.normal(0,1,n)
+    v = np.random.normal(0,1,n)
 
     # power law
-    gamma=1.5
-    v = np.arange(n)+1
-    v=v**(-gamma)
+    #gamma = 1.2
+    #xs = np.arange(n)+1
+    #v = xs**(-gamma)
 
     # normalize
     v = v/np.linalg.norm(v)
     v = -np.sort(-np.abs(v))
+
     newTd = NewTDExperiment(k, v)
     fid = newTd.fid
     print("Generated length-{} random vector: {}.".format(n, v))
