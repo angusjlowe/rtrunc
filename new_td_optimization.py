@@ -1,10 +1,64 @@
 import numpy as np
 from numpy.polynomial import Polynomial
+import itertools
+
+def traceDistance(rho, sigma):
+    eigs = np.linalg.eigvals(rho-sigma)
+    return np.sum(np.abs(eigs))/2.
 
 # take a numpy array as input and compute the top-k norm
 def topKNorm(k, v):
     sortedV = -np.sort(-np.abs(v))
     return np.sqrt(np.sum(sortedV[:k]**2))
+
+# the partial weight function R(k, C) from the 1994 paper by Chen et al.
+# TODO: refactor using recursive expression in Chen et al. paper.
+def partialWeight(k, C, ws):
+    subsets = [*itertools.combinations(C, k)]
+    res = 0
+    S = [*range(np.size(ws))]
+    for B in subsets:
+        filter = list(map(lambda j: j in B, S))
+        res += np.prod(ws[filter])
+    return res
+
+# get weights in max entropy model from marginal probabilities
+def getWeightsFromCoverage(ps, n, k, accuracy='3', maxIter=300):
+    acc = int(accuracy)
+    if np.abs(np.sum(ps) - k) > 0.01:
+        print("Not a valid set of coverage probabilities.")
+        return None
+    ws = ps
+    S = [*range(n)]
+    for _ in range(maxIter):
+        wsRest = [(ps[j] * partialWeight(k-1, S[1:], ws))
+                  /partialWeight(k-1,S[0:j] + S[j+1:n], ws) for j in range(1,n)]
+        wsNew = np.concatenate(([ps[0]], wsRest))
+        if np.max(np.abs(wsNew - ws)) < 10**(-acc-1):
+            break
+        else:
+            ws = wsNew
+    return ws
+
+# (assumes zero indexed i) get ith marginal from weights
+def computeSingleMarginalFromWeights(i, k, ws):
+    n = np.size(ws)
+    S = [*range(n)]
+    return ws[i]*partialWeight(k-1, S[0:i] + S[i+1:n], ws)/partialWeight(k, S, ws)
+
+# (assumes distinct i,j, zero indexed) get (i,j)th marginal from weights
+def computePairMarginalFromWeights(i, j, k, ws):
+    if i==j:
+        return computeSingleMarginalFromWeights(i,k,ws)
+    if i!=j and k<=1:
+        return 0 
+    else:
+        n = np.size(ws)
+        C = [*range(n)]
+        C.remove(i)
+        C.remove(j)
+        return ws[i]*ws[j]*partialWeight(k-2, C, ws)/partialWeight(k, [*range(n)], ws)
+
 
 class NewTDExperiment():
     def __init__(self, k, v, verbose=0):
@@ -12,8 +66,8 @@ class NewTDExperiment():
         self.t = 0
         # sort in nonincreasing order of abs value
         self.v = -np.sort(-np.abs(v))
-        self.r=0
-        self.l=k
+        self.r=-1
+        self.l=-1
         self.n = np.size(v)
         self.verbose = verbose
         self.fid = topKNorm(k, v)
@@ -23,6 +77,11 @@ class NewTDExperiment():
         self.b0 = np.sum(v[k-1:])
         self.b1 = np.sum(v[k-1:])
         self.c = np.sum(v[k-1:]**2)
+
+        # store optimal quantities
+        self.ps = []
+        self.m = []
+        self.t = -1
 
     def getCubicSols(self,r,l):
         # with a,b,c,d,e defined as below, the cubic eqn to be satisfied becomes
@@ -42,15 +101,18 @@ class NewTDExperiment():
         Trl = self.b0 - self.b1
         return Trl/(r+1+(l-k+r)*t)
     
-    def getMartginals(self):
+    # get marginals. Should only be called after 
+    # optimizing
+    def getMarginals(self):
+        if self.r < 0:
+            raise ValueError("Integer r not yet set. Run optimization first.")
         r=self.r
         l=self.l
         v=self.v
-        n=self.n
         t=self.t
-        theta=self.theta
+        theta=self.theta(r,l,t)
         k=self.k
-        return np.concatenate((np.ones(k-r-1), v[k-r-1:l-1]/theta(r,l,t) - t, np.zeros(n-l+1)))
+        return v[k-r-1:l-1]/theta - t
     
     def rTest(self,r,l,t,tol):
         v=self.v
@@ -112,18 +174,52 @@ class NewTDExperiment():
                 ts = self.getCubicSols(r, l)
                 for t in ts:
                     if self.rlTest(r,l,t):
-                        m = self.formMeas(r,l,t)
+                        self.m = self.formMeas(r,l,t)
+                        self.t = t
                         self.r=r
                         self.l=l
-                        self.t = t
-                        return m,t
+                        return self.m,t
         raise RuntimeError("Valid r and ell not found.")
     
     # should probably just be a function that samples
     # a random pure state according to the right
-    # distribution
-    def getOptimalTDState(self):
+    # distribution. Use Procedure 1 in Sec. 3 of Chen et al.
+    def sampleOptimalTDState(self):
         return None
+    
+    def getLastBlock(self, theta):
+        ps = self.ps
+        k = self.k
+        r = self.r
+        l = self.l
+        ws = getWeightsFromCoverage(ps, l-k+r, r+1)
+        q = lambda i, j: computePairMarginalFromWeights(i, j, r+1, ws)
+        M = [[q(i,j)*theta**2 for i in [*range(0, l-k+r)]]
+         for j in [*range(0, l-k+r)]]
+        return np.array(M)
+    
+    # output the optimal density matrix.
+    # (Not useful in practice. And not 100% sure it works.)
+    def getOptimalTDState(self):
+        if len(self.m) < self.n:
+            raise ValueError("m not yet computed. Run optimization first.")
+        m = self.m
+        t = self.t
+        k = self.k
+        r = self.r
+        l = self.l
+        n = self.n
+        self.ps = self.getMarginals()
+        ps = self.ps
+        theta = self.theta(r,l,t)
+        mtrunc = np.concatenate((m[:k-r-1],np.zeros(n-k+r+1)))
+        w = np.concatenate((np.zeros(k-r-1),theta*ps,np.zeros(n-l+1)))
+        term2 = np.outer(mtrunc, w) + np.outer(w, mtrunc)
+        outerm = np.outer(mtrunc, mtrunc)
+        final = np.zeros((n, n))
+        final[k-r-1:l-1,k-r-1:l-1] = self.getLastBlock(theta)
+        sigma = outerm + term2 + final
+        return sigma/np.linalg.trace(sigma)
 
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
@@ -134,7 +230,7 @@ if __name__ == '__main__':
     v = np.random.normal(0,1,n)
 
     # power law
-    #gamma = 1.2
+    #gamma = 0.05
     #xs = np.arange(n)+1
     #v = xs**(-gamma)
 
@@ -155,3 +251,31 @@ if __name__ == '__main__':
     plt.legend()
     plt.title("k={}. Pure TD approx: {:4f}. Random TD approx: {:4f}".format(k, np.sqrt(1-fid**2),td))
     plt.show()
+    
+    #sigma = newTd.getOptimalTDState()
+    #td = traceDistance(np.outer(v,v), sigma)
+    #print("Getting optimal state leads to a trace distance: {}.".format(td))
+    #input("Press enter to see visualization.")
+    
+
+    # matrix visualization
+    
+    #from matplotlib import colors
+    #vmin = 0
+    #vmax = v[0]**2
+    #cmap = plt.cm.viridis
+    #norm = colors.Normalize(vmin=vmin, vmax=vmax)
+
+    #fig, (ax1,ax2,ax3) = plt.subplots(1,3)
+    #axes = (ax1,ax2,ax3)
+    #vtrunc = np.concatenate((v[:k],np.zeros(n-k)))
+    #vtrunc = vtrunc/np.linalg.norm(vtrunc)
+    #im1 = ax1.matshow(np.outer(v,v), cmap=cmap, norm=norm)
+    #ax1.set_title("$|v\\rangle\\langle v|$")
+    #ax2.matshow(np.outer(vtrunc,vtrunc), cmap=cmap, norm=norm)
+    #ax2.set_title("$|v_{1:k}\\rangle \\langle v_{1:k}|$")
+    #ax3.matshow(sigma, cmap=cmap, norm=norm)
+    #ax3.set_title("$\\sigma^\\star$")
+    #plt.tight_layout()
+    #plt.show()
+    
