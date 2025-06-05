@@ -11,19 +11,20 @@ def topKNorm(k, v):
     sortedV = -np.sort(-np.abs(v))
     return np.sqrt(np.sum(sortedV[:k]**2))
 
-# the partial weight function R(k, C) from the 1994 paper by Chen et al.
-# TODO: refactor using recursive expression in Chen et al. paper.
+def t_helper(i, C, ws):
+    return np.sum(ws[C]**i)
+
 def partialWeight(k, C, ws):
-    subsets = [*itertools.combinations(C, k)]
-    res = 0
-    S = [*range(np.size(ws))]
-    for B in subsets:
-        filter = list(map(lambda j: j in B, S))
-        res += np.prod(ws[filter])
-    return res
+    if k <= 0:
+        return 1
+    if k > len(C):
+        return 0
+    f = lambda x: (-1)**(x+1) * t_helper(x, C, ws) * partialWeight(k-x, C, ws)
+    return 1/k * sum([f(x) for x in range(1,k+1)])
+
 
 # get weights in max entropy model from marginal probabilities
-def getWeightsFromCoverage(ps, n, k, accuracy='3', maxIter=300):
+def getWeightsFromCoverage(ps, n, k, accuracy='5', maxIter=300):
     acc = int(accuracy)
     if np.abs(np.sum(ps) - k) > 0.01:
         print("Not a valid set of coverage probabilities.")
@@ -32,7 +33,7 @@ def getWeightsFromCoverage(ps, n, k, accuracy='3', maxIter=300):
     S = [*range(n)]
     for _ in range(maxIter):
         wsRest = [(ps[j] * partialWeight(k-1, S[1:], ws))
-                  /partialWeight(k-1,S[0:j] + S[j+1:n], ws) for j in range(1,n)]
+                  /partialWeight(k-1, S[0:j] + S[j+1:n], ws) for j in range(1,n)]
         wsNew = np.concatenate(([ps[0]], wsRest))
         if np.max(np.abs(wsNew - ws)) < 10**(-acc-1):
             break
@@ -181,14 +182,22 @@ class NewTDExperiment():
                         return self.m,t
         raise RuntimeError("Valid r and ell not found.")
     
+    def sampleSubset(ps, n, k):
+        
+        return None
+
+
     # should probably just be a function that samples
     # a random pure state according to the right
     # distribution. Use Procedure 1 in Sec. 3 of Chen et al.
     def sampleOptimalTDState(self):
+        if self.r < 0:
+            raise ValueError("r not yet computed. Run optimization first.")
+        ps = self.getMarginals()
+        S = self.sampleSubset(ps, self.l-self.k+self.r, self.r+1)
         return None
     
-    def getLastBlock(self, theta):
-        ps = self.ps
+    def getLastBlock(self, theta, ps):
         k = self.k
         r = self.r
         l = self.l
@@ -209,73 +218,14 @@ class NewTDExperiment():
         r = self.r
         l = self.l
         n = self.n
-        self.ps = self.getMarginals()
-        ps = self.ps
+        ps = self.getMarginals()
         theta = self.theta(r,l,t)
         mtrunc = np.concatenate((m[:k-r-1],np.zeros(n-k+r+1)))
         w = np.concatenate((np.zeros(k-r-1),theta*ps,np.zeros(n-l+1)))
         term2 = np.outer(mtrunc, w) + np.outer(w, mtrunc)
         outerm = np.outer(mtrunc, mtrunc)
         final = np.zeros((n, n))
-        final[k-r-1:l-1,k-r-1:l-1] = self.getLastBlock(theta)
+        final[k-r-1:l-1,k-r-1:l-1] = self.getLastBlock(theta, ps)
         sigma = outerm + term2 + final
         return sigma/np.linalg.trace(sigma)
 
-if __name__ == '__main__':
-    import matplotlib.pyplot as plt
-    n = int(input("n: "))
-    k = int(input("k: "))
-    
-    # normal, random
-    v = np.random.normal(0,1,n)
-
-    # power law
-    #gamma = 0.05
-    #xs = np.arange(n)+1
-    #v = xs**(-gamma)
-
-    # normalize
-    v = v/np.linalg.norm(v)
-    v = -np.sort(-np.abs(v))
-
-    newTd = NewTDExperiment(k, v)
-    fid = newTd.fid
-    print("Generated length-{} random vector: {}.".format(n, v))
-    print(" Optimal pure TD approx: {}".format(np.sqrt(1-fid**2)))
-    print("Solving TD optimization problem for k={}...".format(k))
-    m,td = newTd.getOptimalTDMeas()
-    input("Solved. Optimal randomized TD approx: {:4f}. Press enter to see plot.".format(td))
-    m=list(m)
-    plt.step([*range(len(m))], m, label="m")
-    plt.step([*range(len(m))], v, label="v")
-    plt.legend()
-    plt.title("k={}. Pure TD approx: {:4f}. Random TD approx: {:4f}".format(k, np.sqrt(1-fid**2),td))
-    plt.show()
-    
-    #sigma = newTd.getOptimalTDState()
-    #td = traceDistance(np.outer(v,v), sigma)
-    #print("Getting optimal state leads to a trace distance: {}.".format(td))
-    #input("Press enter to see visualization.")
-    
-
-    # matrix visualization
-    
-    #from matplotlib import colors
-    #vmin = 0
-    #vmax = v[0]**2
-    #cmap = plt.cm.viridis
-    #norm = colors.Normalize(vmin=vmin, vmax=vmax)
-
-    #fig, (ax1,ax2,ax3) = plt.subplots(1,3)
-    #axes = (ax1,ax2,ax3)
-    #vtrunc = np.concatenate((v[:k],np.zeros(n-k)))
-    #vtrunc = vtrunc/np.linalg.norm(vtrunc)
-    #im1 = ax1.matshow(np.outer(v,v), cmap=cmap, norm=norm)
-    #ax1.set_title("$|v\\rangle\\langle v|$")
-    #ax2.matshow(np.outer(vtrunc,vtrunc), cmap=cmap, norm=norm)
-    #ax2.set_title("$|v_{1:k}\\rangle \\langle v_{1:k}|$")
-    #ax3.matshow(sigma, cmap=cmap, norm=norm)
-    #ax3.set_title("$\\sigma^\\star$")
-    #plt.tight_layout()
-    #plt.show()
-    
