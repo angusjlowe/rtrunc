@@ -182,9 +182,28 @@ class NewTDExperiment():
                         return self.m,t
         raise RuntimeError("Valid r and ell not found.")
     
-    def sampleSubset(ps, n, k):
-        
-        return None
+    # draw-by-draw sampling procedure from Chen et al.
+    # intermediate marginals with set S given by q(j, S)
+    def sampleSubset(self, ps, n, k):
+        ws = getWeightsFromCoverage(ps, n, k)
+        S = [*range(n)]
+        A = []
+        q_init = ps/n
+        i1 = np.random.choice(S, size=1, p=q_init)
+        A.append(i1)
+        q_prev = q_init
+        if k > 1:
+            for el in range(1, k):
+                Sel = S
+                for i in A:
+                    Sel.remove(i)
+                ielminus1 = A[-1]
+                qk = list(map(lambda j: (ws[ielminus1]*q_prev[j]-ws[j]*q_prev[ielminus1]) 
+                                / ((k-el-1)(ws[ielminus1]-ws[j])*q_prev[ielminus1]), Sel))
+                ik = np.random.choice(Sk, size=1, p=qk)
+                A.append(ik)
+                q_prev = qk
+        return A
 
 
     # should probably just be a function that samples
