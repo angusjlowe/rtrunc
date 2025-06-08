@@ -3,11 +3,11 @@ import matplotlib.pyplot as plt
 import new_td_optimization as ntd
 import robustness_optimization as ro
 
-ns = [500]
+ns = [1000]
 
-gamma = 0.75
+gamma = 0.51
 startingepss = []
-start = 2
+start = 10
 
 for n in ns:
     # power law
@@ -19,13 +19,13 @@ for n in ns:
     v = -np.sort(-np.abs(v))
         
 
-    ks1 = np.arange(start, n-50, int(n/100))
-    ks2 = np.arange(n-50, n-10, 10)
-    ks = np.concatenate((ks1,ks2))
+    ks = np.arange(start,n - 10,int(n/50))
 
     fids = []
     ubs = []
     tds = []
+    rs = []
+    ls = []
     for k in ks:
         if k % 1 == 0:
             print("on iteration {}".format(k))
@@ -34,9 +34,11 @@ for n in ns:
         fids.append(fid)
         m,td = newTd.getOptimalTDMeas()
         tds.append(td)
-        kSupp = ro.kSuppNorm(k, v)
-        robUB = 1-kSupp**(-2)
-        ubs.append(robUB)
+        rs.append(newTd.r)
+        ls.append(newTd.l)
+        #kSupp = ro.kSuppNorm(k, v)
+        #robUB = 1-kSupp**(-2)
+        #ubs.append(robUB)
 
 
     ubs=np.array(ubs)
@@ -44,8 +46,10 @@ for n in ns:
     fids=np.array(fids)
     epss=np.sqrt(1-fids**2)
     startingepss.append(epss[0])
-    plt.plot(epss, ubs/epss**2, '-', label='Rob. UB')
-    plt.plot(epss, tds/epss**2, '-', label='opt. td')
+    plt.plot(ks, rs, '-', label='r')
+    plt.plot(ks, ls, '-', label='ell')
+    #plt.plot(epss, ubs/epss**2, '-', label='Rob. UB')
+    #plt.plot(epss, tds/epss**2, '-', label='opt. td')
 
 maxeps = max(startingepss)
 epsrange = np.arange(0.,maxeps+0.01,0.01)
@@ -60,7 +64,14 @@ plt.xlabel('$\\epsilon$')
 #plt.xscale('log')
 plt.show()
 
+plt.plot(ks, rs, '-o', label='r')
+plt.plot(ks, ls, '-o', label='ell')
+plt.legend()
+plt.show()
+
 m=list(m)
 plt.step([*range(len(m))], m, label="m")
-plt.step([*range(len(m))], v, label="v")
+#plt.step([*range(len(m))], v, label="v")
+plt.legend()
+plt.title('n = {}, k= {}'.format(n, ks[-1]))
 plt.show()

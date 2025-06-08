@@ -14,28 +14,49 @@ def topKNorm(k, v):
 def t_helper(i, C, ws):
     return np.sum(ws[C]**i)
 
+# compute partial weight, dynamically
 def partialWeight(k, C, ws):
     if k <= 0:
         return 1
     if k > len(C):
         return 0
-    f = lambda x: (-1)**(x+1) * t_helper(x, C, ws) * partialWeight(k-x, C, ws)
-    return 1/k * sum([f(x) for x in range(1,k+1)])
+    ws_np = np.array(ws, dtype=float)
+
+    # dp_table[i] will store partialWeight(i, C, ws)
+    # Initialize with zeros, dp_table[0] = 1.0 for k=0 case
+    dp_table = np.zeros(k + 1, dtype=float)
+    dp_table[0] = 1.0
+    for current_k in range(1, k+1):
+        # f = lambda x: (-1)**(x+1) * t_helper(x, C, ws) * partialWeight(k-x, C, ws)
+        sum_f_terms = 0.0
+        for j in range(1, current_k + 1):
+            sum_f_terms += (-1)**(j + 1) * t_helper(j, C, ws_np) * dp_table[current_k - j]
+        dp_table[current_k] = (1.0 / current_k) * sum_f_terms
+    return dp_table[k]
 
 
 # get weights in max entropy model from marginal probabilities
-def getWeightsFromCoverage(ps, n, k, accuracy='5', maxIter=300):
+def getWeightsFromCoverage(ps, n, k, accuracy='5', maxIter=1000):
     acc = int(accuracy)
-    if np.abs(np.sum(ps) - k) > 0.01:
+    tol = 10**(-acc-1)
+    if np.abs(np.sum(ps) - k) > tol:
         print("Not a valid set of coverage probabilities.")
         return None
     ws = ps
     S = [*range(n)]
     for _ in range(maxIter):
-        wsRest = [(ps[j] * partialWeight(k-1, S[1:], ws))
-                  /partialWeight(k-1, S[0:j] + S[j+1:n], ws) for j in range(1,n)]
-        wsNew = np.concatenate(([ps[0]], wsRest))
-        if np.max(np.abs(wsNew - ws)) < 10**(-acc-1):
+        ws_rest_list = []
+        common_num_term = partialWeight(k-1, S[1:], ws)
+        for j in range(1, n):
+            indices_for_denom = S[0:j] + S[j+1:n]
+            denom_term = partialWeight(k-1, indices_for_denom, ws)
+            if denom_term == 0:
+                val = 0
+            else:
+                val = (ps[j] * common_num_term) / denom_term
+            ws_rest_list.append(val)
+        wsNew = np.concatenate(([ps[0]], ws_rest_list))
+        if np.max(np.abs(np.array(wsNew) - ws)) < tol:
             break
         else:
             ws = wsNew
@@ -83,6 +104,7 @@ class NewTDExperiment():
         self.ps = []
         self.m = []
         self.t = -1
+        self.m_norm = -1
 
     def getCubicSols(self,r,l):
         # with a,b,c,d,e defined as below, the cubic eqn to be satisfied becomes
@@ -129,9 +151,9 @@ class NewTDExperiment():
         n=np.size(v)
         theta=self.theta
         if l==n+1:
-            return t*theta(r,l,t)>0
+            return t*theta(r,l,t) <= v[n-1]+tol
         else:
-            return v[l-1]/t-tol < theta(r,l,t) <= v[l-2]/t+tol
+            return v[l-1]-tol < t*theta(r,l,t) <= v[l-2]+tol
     
     def rlTest(self,r,l,t,tol=10**(-4)):
         return self.rTest(r,l,t,tol) and self.lTest(r,l,t,tol)
@@ -188,21 +210,25 @@ class NewTDExperiment():
         ws = getWeightsFromCoverage(ps, n, k)
         S = [*range(n)]
         A = []
-        q_init = ps/n
-        i1 = np.random.choice(S, size=1, p=q_init)
-        A.append(i1)
+        q_init = ps/k
+        i1 = np.random.choice(S, size=1, p=q_init)[0]
+        A.append(int(i1))
         q_prev = q_init
         if k > 1:
             for el in range(1, k):
-                Sel = S
+                print(el)
+                Sel = S.copy()
                 for i in A:
                     Sel.remove(i)
                 ielminus1 = A[-1]
-                qk = list(map(lambda j: (ws[ielminus1]*q_prev[j]-ws[j]*q_prev[ielminus1]) 
-                                / ((k-el-1)(ws[ielminus1]-ws[j])*q_prev[ielminus1]), Sel))
-                ik = np.random.choice(Sk, size=1, p=qk)
-                A.append(ik)
-                q_prev = qk
+                qel = lambda j: ((ws[ielminus1]*q_prev[j]-ws[j]*q_prev[ielminus1]) 
+                                 / ((k-el)*(ws[ielminus1]-ws[j])*q_prev[ielminus1])) if (j in Sel) else 0
+                qelnew = lambda j: qel(j) if qel(j) > 0 else 0
+                qels = [qelnew(j) for j in S]
+                qels = qels/np.sum(qels)
+                ik = np.random.choice(S, size=1, p=qels)[0]
+                A.append(int(ik))
+                q_prev = qels
         return A
 
 
@@ -212,9 +238,20 @@ class NewTDExperiment():
     def sampleOptimalTDState(self):
         if self.r < 0:
             raise ValueError("r not yet computed. Run optimization first.")
-        ps = self.getMarginals()
+        if self.m_norm == -1:
+            self.m_norm = np.linalg.norm(self.m)
+        if self.ps == []:
+            ps = self.getMarginals()
         S = self.sampleSubset(ps, self.l-self.k+self.r, self.r+1)
-        return None
+        phi1 = self.m[:self.k-self.r-1]
+        phi2 = np.zeros(self.l-self.k+self.r,dtype=float)
+        theta = self.theta(self.r, self.l, self.t)
+        for idx in S:
+            phi2[idx] = theta
+        phi3 = np.zeros(self.n - self.l + 1)
+        phi = np.concatenate((phi1, phi2, phi3))
+        phi = phi/self.m_norm
+        return phi
     
     def getLastBlock(self, theta, ps):
         k = self.k
@@ -226,8 +263,7 @@ class NewTDExperiment():
          for j in [*range(0, l-k+r)]]
         return np.array(M)
     
-    # output the optimal density matrix.
-    # (Not useful in practice. And not 100% sure it works.)
+    # output the optimal density matrix. Probably not useful in pracrtice.
     def getOptimalTDState(self):
         if len(self.m) < self.n:
             raise ValueError("m not yet computed. Run optimization first.")

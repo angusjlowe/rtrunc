@@ -67,4 +67,6 @@ ax3.matshow(sigma, cmap=cmap, norm=norm)
 ax3.set_title("$\\sigma^\\star$")
 plt.tight_layout()
 plt.show()
+
+
     
