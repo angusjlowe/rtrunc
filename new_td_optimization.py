@@ -104,7 +104,7 @@ class NewTDExperiment():
         self.ps = []
         self.m = []
         self.t = -1
-        self.m_norm = -1
+        self.m_top_k_norm = -1
 
     def getCubicSols(self,r,l):
         # with a,b,c,d,e defined as below, the cubic eqn to be satisfied becomes
@@ -155,7 +155,7 @@ class NewTDExperiment():
         else:
             return v[l-1]-tol < t*theta(r,l,t) <= v[l-2]+tol
     
-    def rlTest(self,r,l,t,tol=10**(-4)):
+    def rlTest(self,r,l,t,tol=10**(-5)):
         return self.rTest(r,l,t,tol) and self.lTest(r,l,t,tol)
     
     def formMeas(self,r,l,t):
@@ -216,7 +216,6 @@ class NewTDExperiment():
         q_prev = q_init
         if k > 1:
             for el in range(1, k):
-                print(el)
                 Sel = S.copy()
                 for i in A:
                     Sel.remove(i)
@@ -238,8 +237,8 @@ class NewTDExperiment():
     def sampleOptimalTDState(self):
         if self.r < 0:
             raise ValueError("r not yet computed. Run optimization first.")
-        if self.m_norm == -1:
-            self.m_norm = np.linalg.norm(self.m)
+        if self.m_top_k_norm == -1:
+            self.m_top_k_norm = topKNorm(self.k, self.m)
         if self.ps == []:
             ps = self.getMarginals()
         S = self.sampleSubset(ps, self.l-self.k+self.r, self.r+1)
@@ -250,7 +249,7 @@ class NewTDExperiment():
             phi2[idx] = theta
         phi3 = np.zeros(self.n - self.l + 1)
         phi = np.concatenate((phi1, phi2, phi3))
-        phi = phi/self.m_norm
+        phi = phi/np.linalg.norm(phi)
         return phi
     
     def getLastBlock(self, theta, ps):

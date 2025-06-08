@@ -8,11 +8,6 @@ k = int(input("k: "))
 # normal, random
 v = np.random.normal(0,1,n)
 
-# power law
-#gamma = 0.05
-#xs = np.arange(n)+1
-#v = xs**(-gamma)
-
 # normalize
 v = v/np.linalg.norm(v)
 v = -np.sort(-np.abs(v))
@@ -31,7 +26,44 @@ plt.legend()
 plt.title("k={}. Pure TD approx: {:4f}. Random TD approx: {:4f}".format(k, np.sqrt(1-fid**2),td))
 plt.show()
 
-print("Beginning sampling procedure...")
+print("Getting worst-case meas. for deterministic approx.")
+vtrunc = np.concatenate((v[:k],np.zeros(n-k)))
+vtrunc = vtrunc/np.linalg.norm(vtrunc)
+(evals, evecs) = np.linalg.eig(np.outer(v,v)-np.outer(vtrunc, vtrunc))
+max_index = np.argmax(evals)
+print("top eval is {}".format(evals[max_index]))
+m_det = evecs[:,max_index]
+m_det = m_det/np.linalg.norm(m_det)
+
+true_expec = np.abs(np.dot(m_det, v))**2
+det_trunc_expec = np.abs(np.dot(m_det, vtrunc))**2
+
+
+print("I'm calculating {} for trace distance now".format(np.abs(true_expec-det_trunc_expec)))
+
+print("Begin sampling procedure...")
+
+n_samples = 200
+expec_samples = []
+for j in range(n_samples):
+    if (j+1) % 10 == 0:
+        print("Sample {}".format(j+1))
+    phi = newTd.sampleOptimalTDState()
+    expec = np.abs(np.dot(phi, m_det))**2
+    expec_samples.append(expec)
+
+means = np.array(list(map(lambda x: np.mean(expec_samples[:x]), [*range(1,n_samples+1)])))
+stds = np.array(list(map(lambda x: np.std(expec_samples[:x], ddof=1)/np.sqrt(x), [*range(2,n_samples+1)])))
+stds = np.concatenate(([0], stds))
+xs = np.arange(n_samples)+1
+plt.plot(xs, means, '-', label='rtrunc estimate', color='blue')
+plt.fill_between(xs, means-stds, means+stds, color='blue', alpha=0.2)
+plt.plot(xs, np.ones(n_samples)*true_expec, '--', color='green', label='true expec.')
+plt.plot(xs, np.ones(n_samples)*det_trunc_expec, '--', color='orange', label='det. trunc. expec. diff.')
+plt.xlabel('no. of samples')
+plt.legend()
+plt.show()
+
 
 
 sigma = newTd.getOptimalTDState()
@@ -49,12 +81,10 @@ sigmanew = np.array([[sigma[idxs[i],idxs[j]] for i in range(n)] for j in range(n
 sigma = sigmanew
 vmin = 0
 vmax = v[0]**2
-cmap = plt.cm.plasma
+cmap = plt.cm.viridis
 norm = colors.Normalize(vmin=vmin, vmax=vmax)
 fig, (ax1,ax2,ax3) = plt.subplots(1,3)
 axes = (ax1,ax2,ax3)
-vtrunc = np.concatenate((v[:k],np.zeros(n-k)))
-vtrunc = vtrunc/np.linalg.norm(vtrunc)
 vtruncnew = np.array([vtrunc[idxs[j]] for j in range(n)])
 vtrunc = vtruncnew
 vnew = np.array([v[idxs[j]] for j in range(n)])
