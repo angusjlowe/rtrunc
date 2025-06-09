@@ -49,7 +49,7 @@ maxeps = max(startingepss)
 epsrange = np.arange(0.,maxeps+0.01,0.01)
 plt.plot(epsrange, np.ones(np.size(epsrange)), '--', label='best possible, $\\epsilon^2$')
 plt.plot(epsrange, 1/epsrange, '--', color='gray', label='best pure approx.' )
-plt.title("Mixed approx. to power law pure state. n={}.".format(gamma,n))
+plt.title("Mixed approx. to power law pure state. n={}.".format(n))
 
 plt.legend()
 plt.ylabel('val.$/\\epsilon^2$')
