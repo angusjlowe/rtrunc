@@ -1,5 +1,5 @@
 import numpy as np
-import td_optimizer as rtrunc
+from rtrunc import td_optimizer as rtrunc
 
 n = int(input("n: "))
 k = int(input("k: "))
@@ -40,7 +40,7 @@ det_trunc_expec = np.abs(np.dot(m_det, vtrunc))**2
 
 print("Begin sampling procedure...")
 
-n_samples = 500
+n_samples = 200
 expec_samples = []
 for j in range(n_samples):
     if (j+1) % 20 == 0:

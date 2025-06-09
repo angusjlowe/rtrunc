@@ -1,6 +1,6 @@
 import numpy as np
-from helpers import *
-from sampling import *
+from .helpers import *
+from .sampling import *
 
 class RobustnessExperiment():
     def __init__(self, k, v, verbose=0):

@@ -1,7 +1,7 @@
 import numpy as np
 from numpy.polynomial import Polynomial
-from sampling import *
-from helpers import *
+from .sampling import *
+from .helpers import *
 
 # Solve for the optimal randomized truncation in trace distance.
 # Assumes v is sorted in nonincreasing order
