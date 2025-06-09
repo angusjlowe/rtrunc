@@ -1,3 +1,5 @@
+![trunc_visualization_1.png](static/img/trunc_visualization_1.png)
+
 rtrunc is a small package to compute randomized truncations of
 pure quantum states, optimized with respect to the following distance measures
 (as of the current version): (i) trace distance and (ii) robustness.
@@ -31,6 +33,8 @@ python -m pytest tests/
 If this works, you should be good to go!
 
 ## Example usage
+
+All the example code in this section is contained in examples/td_opt_example.py.
 
 ### Computing the trace distance
 First, we'll import the necessary packages and create a random quantum
@@ -163,13 +167,19 @@ This gives:
 ### Getting the optimal state
 
 The method getOptimalTDState() returns the density matrix corresponding
-to the optimal randomized truncation. This method will not scale well
-with the dimension, but is useful for visualizing the outputs of
-randomized truncations at smaller dimensions. With n=20 and k=12, we can
-visualize the optimal approximations:
-
-![trunc_visualization_1.png](static/img/trunc_visualization_1.png)
+to the optimal randomized truncation. This method will be costly for large
+dimensions since we are generating an nxn matrix, but is useful for checking
+the output at smaller dimensions. With n=20 and k=12, we can use it to
+visualize the optimal approximation. This leads to the image at the
+beginning of this README.
 
 ### Generating power law plots
 
+The example code in examples/power_law_example.py demonstrates how one
+might use the package to study the behaviour of the optimal approximation
+when the sorted entries of v follow a power law. We can plot the quality of
+the approximations for various rates of decay as a function of the best pure
+trace distance \epsilon.
+
+![power_law_plot](static/img/power_law_plot_1.png)
 
