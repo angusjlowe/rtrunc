@@ -1,8 +1,8 @@
-![trunc_visualization_1.png](static/img/trunc_visualization_1.png)
-
-rtrunc is a small package to compute randomized truncations of
+[rtrunc]("https://github.com/angusjlowe/rtrunc") is a small package to compute randomized truncations of
 pure quantum states, optimized with respect to the following distance measures
 (as of the current version): (i) trace distance and (ii) robustness.
+
+![trunc_visualization_1.png](static/img/trunc_visualization_1.png)
 
 ## Installation
 
