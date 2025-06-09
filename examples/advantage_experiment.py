@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import td_optimizer as rtrunc
+from rtrunc import td_optimizer as tdo
 
 ns = [1000]
 

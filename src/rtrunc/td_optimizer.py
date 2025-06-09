@@ -77,7 +77,7 @@ class TDOptimizer():
         n=np.size(v)
         theta=self.theta
         if l==n+1:
-            return t*theta(r,l,t) <= v[n-1]+tol
+            return t*theta(r,l,t) <= v[n-1]+tol and t!=0 # bit hacky
         else:
             return v[l-1]-tol < t*theta(r,l,t) <= v[l-2]+tol
     
@@ -125,6 +125,7 @@ class TDOptimizer():
                 ts = self.getCubicSols(r, l)
                 for t in ts:
                     if self.rlTest(r,l,t):
+                        print("r = {}, l={}, t={}".format(r, l, t))
                         self.m = self.formMeas(r,l,t)
                         self.t = t
                         self.r=r
