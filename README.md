@@ -2,7 +2,9 @@
 pure quantum states, optimized with respect to the following distance measures
 (as of the current version): (i) trace distance and (ii) robustness.
 
+<p align="center">
 <img src="static/img/trunc_visualization_1.png" alt="trunc_visualization_1" width="600"/>
+</p>
 
 ## Installation
 
