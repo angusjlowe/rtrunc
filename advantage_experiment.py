@@ -1,7 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import new_td_optimization as ntd
-import robustness_optimization as ro
+import td_optimizer as rtrunc
 
 ns = [1000]
 
@@ -29,13 +28,13 @@ for n in ns:
     for k in ks:
         if k % 1 == 0:
             print("on iteration {}".format(k))
-        newTd = ntd.NewTDExperiment(k, v)
-        fid = newTd.fid
+        tdo = rtrunc.TDOptimizer(k, v)
+        fid = tdo.fid
         fids.append(fid)
-        m,td = newTd.getOptimalTDMeas()
+        m,td = tdo.getOptimalTDMeas()
         tds.append(td)
-        rs.append(newTd.r)
-        ls.append(newTd.l)
+        rs.append(tdo.r)
+        ls.append(tdo.l)
         #kSupp = ro.kSuppNorm(k, v)
         #robUB = 1-kSupp**(-2)
         #ubs.append(robUB)
