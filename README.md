@@ -60,18 +60,18 @@ v = -np.sort(-np.abs(v))
 ```
 
 Next, we can make a new trace distance optimizer object. The optimal
-fidelity is immediately available upon instantiation. We can store it for future use.
+fidelity is immediately available upon instantiation.
 
 ```python
 # instantiate trace distance optimization
 tdo = rtrunc.TDOptimizer(k, v)
 fid = tdo.fid
-print("Optimal fidelity is {:.3f}".format(fid))
+print("Optimal pure trace distance is {:.3f}".format(np.sqrt(1-fid**2)))
 ```
 In this case, we get
 
 ```console
-Optimal fidelity is 0.172
+Optimal pure trace distance is 0.172
 ```
 
 To compute the trace distance and unit vector m corresponding to
@@ -79,12 +79,12 @@ the optimal measurement, we need to run:
 
 ```python
 m,td = tdo.getOptimalTDMeas()
-print("Optimal trace distance is {:.3f}")
+print("Optimal mixed trace distance is {:.3f}")
 ```
 which gives us
 
 ```console
-Optimal trace distance is 0.089
+Optimal mixed trace distance is 0.089
 ```
 in this case, almost twice as accurate.
 
