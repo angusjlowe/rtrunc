@@ -36,7 +36,7 @@ If this works, you should be good to go!
 
 ## Example usage
 
-All the example code in this section is contained in examples/td_opt_example.py.
+Most of the example code in this section is contained in examples/td_opt_example.py.
 
 ### Computing the trace distance
 First, we'll import the necessary packages and create a random quantum
