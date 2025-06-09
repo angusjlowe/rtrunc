@@ -93,8 +93,8 @@ in this case, almost twice as accurate.
 
 Continuing with the above example, we can now sample pure states
 from the ensemble corresponding to the optimal density matrix \sigma^*.
-For demonstration purposes, let's say we are interested in the observable
-serving as the worst-case measurement in discriminating v from its
+Let's say we are interested in the observable
+serving as the optimal measurement for discriminating v from its
 deterministic truncation. Call this m_det.
 
 ```python
