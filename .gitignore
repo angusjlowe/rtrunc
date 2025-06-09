@@ -3,3 +3,4 @@ myenv/
 *.egg-info/
 .vscode
 .pytest_cache
+.DS_Store
