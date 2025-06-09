@@ -125,7 +125,6 @@ class TDOptimizer():
                 ts = self.getCubicSols(r, l)
                 for t in ts:
                     if self.rlTest(r,l,t):
-                        print("r = {}, l={}, t={}".format(r, l, t))
                         self.m = self.formMeas(r,l,t)
                         self.t = t
                         self.r=r
