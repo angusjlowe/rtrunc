@@ -11,6 +11,8 @@ v = np.random.normal(0,1,n)
 v = v/np.linalg.norm(v)
 v = -np.sort(-np.abs(v))
 
+
+# instantiate trace distance optimization
 tdo = rtrunc.TDOptimizer(k, v)
 fid = tdo.fid
 print("Generated length-{} random vector: {}.".format(n, v))
@@ -28,8 +30,10 @@ plt.title("k={}. Pure TD approx: {:4f}. Random TD approx: {:4f}".format(k, np.sq
 plt.show()
 
 print("Getting worst-case meas. for deterministic approx.")
+# store deterministic truncation
 vtrunc = np.concatenate((v[:k],np.zeros(n-k)))
 vtrunc = vtrunc/np.linalg.norm(vtrunc)
+# compute worst-case measurement
 (evals, evecs) = np.linalg.eig(np.outer(v,v)-np.outer(vtrunc, vtrunc))
 max_index = np.argmax(evals)
 m_det = evecs[:,max_index]
