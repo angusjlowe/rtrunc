@@ -79,7 +79,7 @@ the optimal measurement, we need to run:
 
 ```python
 m,td = tdo.getOptimalTDMeas()
-print("Optimal mixed trace distance is {:.3f}")
+print("Optimal mixed trace distance is {:.3f}".format(td))
 ```
 which gives us
 
