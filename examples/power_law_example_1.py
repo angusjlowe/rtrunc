@@ -3,9 +3,9 @@ import matplotlib.pyplot as plt
 from rtrunc import td_optimizer as rtrunc
 from rtrunc.helpers import *
 
-n = 500
+n = 800
 
-gammas = [0.25, 0.5, 0.75, 1., 1.25]
+gammas = [0.25, 0.75, 1., 1.25]
 colors = ['orange', 'blue', 'green', 'red', 'black']
 startingepss = []
 start = 10
@@ -42,16 +42,17 @@ for j in range(len(gammas)):
     fids=np.array(fids)
     epss=np.sqrt(1-fids**2)
     startingepss.append(epss[0])
-    plt.plot(epss, ubs/epss**2, '--', color=colors[j], label='Rob. UB, $\\gamma$={}'.format(gamma))
-    plt.plot(epss, tds/epss**2, '-', color=colors[j], label='Opt. TD, $\\gamma$={}'.format(gamma))
+    plt.plot(epss, ubs/epss, '--', color=colors[j], label='Rob. UB, $\\gamma$={}'.format(gamma))
+    plt.plot(epss, tds/epss, '-', color=colors[j], label='Opt. TD, $\\gamma$={}'.format(gamma))
+    #plt.plot(epss, epss**(2*gamma-1), '.', color=colors[j], label='$\\epsilon^{2\\gamma-1}$')
 
 maxeps = max(startingepss)
 epsrange = np.arange(0.,maxeps+0.01,0.01)
-plt.plot(epsrange, np.ones(np.size(epsrange)), '--', label='best possible, $\\epsilon^2$')
-plt.plot(epsrange, 1/epsrange, '--', color='gray', label='best pure approx.' )
+plt.plot(epsrange, epsrange, '--', label='best possible, $\\epsilon^2$')
+plt.plot(epsrange, np.ones(np.size(epsrange)), '--', color='gray', label='best pure approx.' )
 plt.title("Mixed approx. to power law pure state. n={}.".format(n))
 
 plt.legend()
-plt.ylabel('val.$/\\epsilon^2$')
+plt.ylabel('val.$/\\epsilon$')
 plt.xlabel('$\\epsilon$')
 plt.show()
