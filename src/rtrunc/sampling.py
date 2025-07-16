@@ -27,7 +27,7 @@ def partialWeight(k, C, ws):
 
 
 # get weights in max entropy model from marginal probabilities
-def getWeightsFromCoverage(ps, n, k, accuracy='5', maxIter=1000):
+def getWeightsFromCoverage(ps, n, k, accuracy='4', maxIter=1000):
     acc = int(accuracy)
     tol = 10**(-acc-1)
     if np.abs(np.sum(ps) - k) > tol:

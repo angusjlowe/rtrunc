@@ -27,6 +27,7 @@ class TDOptimizer():
 
         # store optimal quantities
         self.ps = []
+        self.ws = []
         self.m = []
         self.t = -1 # negative value indicates the optimizer has not run
         self.m_top_k_norm = -1
@@ -135,7 +136,9 @@ class TDOptimizer():
     # draw-by-draw sampling procedure from Chen et al.
     # intermediate marginals with set S given by q(j, S)
     def sampleSubset(self, ps, n, k):
-        ws = getWeightsFromCoverage(ps, n, k)
+        if self.ws == []:
+            self.ws = getWeightsFromCoverage(ps, n, k)
+        ws = self.ws
         S = [*range(n)]
         A = []
         q_init = ps/k
@@ -152,10 +155,18 @@ class TDOptimizer():
                                  / ((k-el)*(ws[ielminus1]-ws[j])*q_prev[ielminus1])) if (j in Sel) else 0
                 qelnew = lambda j: qel(j) if qel(j) > 0 else 0
                 qels = [qelnew(j) for j in S]
-                qels = qels/np.sum(qels)
-                ik = np.random.choice(S, size=1, p=qels)[0]
+                s = np.sum(qels)
+                if s < 1e-4:
+                    remaining = [j for j in Sel if j not in A]
+                    if len(remaining) == 0:
+                        break
+                    ik = np.random.choice(remaining)
+                    q_prev = q_init
+                else:
+                    qels = qels / s
+                    ik = np.random.choice(S, size=1, p=qels)[0]
+                    q_prev = qels
                 A.append(int(ik))
-                q_prev = qels
         return A
 
 
@@ -167,7 +178,8 @@ class TDOptimizer():
         if self.m_top_k_norm == -1:
             self.m_top_k_norm = topKNorm(self.k, self.m)
         if self.ps == []:
-            ps = self.getMarginals()
+            self.ps = self.getMarginals()
+        ps = self.ps
         S = self.sampleSubset(ps, self.l-self.k+self.r, self.r+1)
         phi1 = self.m[:self.k-self.r-1]
         phi2 = np.zeros(self.l-self.k+self.r,dtype=float)
