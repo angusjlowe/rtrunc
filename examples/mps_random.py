@@ -3,45 +3,43 @@ from rtrunc import td_optimizer as tdo
 from scipy.stats import unitary_group
 import copy
 
-def mps_inner_prod(tensors1, tensors2):
-    """
-    Computes the inner product ⟨ψ₂|ψ₁⟩ for two MPS represented by tensors1 and tensors2,
-    using a left-to-right contraction.
-
-    Assumes open boundary MPS and that both MPS have the same structure.
-
-    Parameters:
-        tensors1: list of MPS tensors (original state |ψ₁⟩)
-        tensors2: list of MPS tensors (bra ⟨ψ₂|)
-
-    Returns:
-        complex scalar representing ⟨ψ₂|ψ₁⟩
-    """
+def mps_expec(tensors1, tensors2, obs_tensors):
     n = len(tensors1)
-    if n != len(tensors2):
+    if n != len(tensors2) or n!=len(obs_tensors):
         raise ValueError("Mismatch in number of sites.")
 
     # Start contraction with left boundary
     A = tensors1[0]           # shape (d, D)
-    B = np.conj(tensors2[0])  # shape (d, D)
-    contraction = np.einsum('ia,ib->ab', A, B)
+    B = obs_tensors[0]        # shape (d, d)  
+    C = np.conj(tensors2[0])  # shape (d, D)
+    contraction = np.einsum('ia,ij,jb->ab', A, B, C)
 
     # Contract bulk tensors
     for j in range(1, n-1):
         A = tensors1[j]           # shape (D, d, D)
-        B = np.conj(tensors2[j])  # shape (D, d, D)
+        B = obs_tensors[j]        # shape (d, d)
+        C = np.conj(tensors2[j])  # shape (D, d, D)
 
-        # Contract left edge with left virtual index of A and B
-        contraction = np.einsum('ab,aic,bid->cd', contraction, A, B)
-
+        # Contract left edge
+        contraction = np.einsum('ab,aic,ij,bjd->cd', contraction, A, B, C)
     # Final tensors
     A = tensors1[-1]          # shape (D, d)
-    B = np.conj(tensors2[-1]) # shape (D, d)
+    B = obs_tensors[-1]       # shape (d, d)
+    C = np.conj(tensors2[-1]) # shape (D, d)
 
     # Contract with last site
-    contraction = np.einsum('ab,ai,bi->', contraction, A, B)
+    contraction = np.einsum('ab,ai,ij,bj->', contraction, A, B, C)
 
     return contraction
+    
+def mps_inner_prod(tensors1, tensors2):
+    n = len(tensors1)
+    if n != len(tensors2):
+        raise ValueError("Mismatch in number of sites.")
+    d = tensors1[0].shape[0]
+    I = np.eye(d)
+    obs_tensors = [I] * n
+    return mps_expec(tensors1, tensors2, obs_tensors)
 
 def right_canonical_form(tensors):
     n = len(tensors)
@@ -211,7 +209,7 @@ def get_random_mps(n,d,bond_dim):
         tensors[j] = tensors[j] / norm**(1/n)
     return tensors
 
-def set_schmidt_coeffs(tensors, gamma):
+def power_law_schmidt_coeffs(tensors, gamma):
     n = len(tensors)
     psi_tensors = copy.deepcopy(tensors)
     for l in range(1,n-1):
@@ -242,14 +240,17 @@ def dtrunc(tensors, k, l):
     new_tensors[l] = np.diag(new_schmidts)
     new_tensors = get_mps_tensors_from_canonical(new_tensors)
     return new_tensors
+
+
+
     
 
-n=8
+n=10
 d=2
 l=5
 bond_dim = 60
 tensors = get_random_mps(n,d,bond_dim)
-tensors = set_schmidt_coeffs(tensors,0.2)
+tensors = power_law_schmidt_coeffs(tensors,0.2)
 # check if resulting vector has unit norm
 psi = get_vector_from_mps(tensors)
 print("norm is {:.3f}".format(np.linalg.norm(psi)))
@@ -284,7 +285,7 @@ print("Norm is: {:.3f}".format(np.linalg.norm(Sl)))
 print("\nChecking multiple truncations...\n")
 psi_tensors_original = get_random_mps(n,d,bond_dim)
 print("Setting power law Schmidt coefficients...")
-psi_tensors_original = set_schmidt_coeffs(psi_tensors_original, 1.2)
+psi_tensors_original = power_law_schmidt_coeffs(psi_tensors_original, 1.2)
 psi_tensors = copy.deepcopy(psi_tensors_original)
 k = 10
 for l in range(1,n):
@@ -297,6 +298,18 @@ print("\nFinal TD is...\n")
 overlap_sq = np.abs(mps_inner_prod(psi_tensors, psi_tensors_original))**2
 td = np.sqrt(1-overlap_sq)
 print("TD with k={} is {:.5f}".format(k, td))
+
+# observable expectation
+print("\nObservable expectations...\n")
+Z = np.array([[1,0],[0,-1]], dtype=float)
+X = np.array([[0,1],[1,0]], dtype=float)
+Zs = [Z] * n
+Xs = [X] * n
+orig_expec = np.real(mps_expec(psi_tensors_original, psi_tensors_original, Xs))
+trunc_expec = np.real(mps_expec(psi_tensors, psi_tensors, Xs))
+print("Original expec. = {:.5f}".format(orig_expec))
+print("Truncated MPS expec. = {:.5f}".format(trunc_expec))
+
 
 # what happens with the optimal k-incoherent density matrix?
 
