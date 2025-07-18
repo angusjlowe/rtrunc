@@ -1,74 +1,129 @@
 import numpy as np
+from scipy.special import logsumexp
+
+def log_partialWeight(k, C, ws):
+    """Fast log-space dynamic programming for partialWeight."""
+    if k < 0 or k > len(C):
+        return -np.inf
+    if k == 0:
+        return 0.0
+
+    log_ws = np.log(np.clip([ws[i] for i in C], 1e-300, None))
+    #m = len(log_ws)
+
+    log_dp = np.full(k + 1, -np.inf)
+    log_dp[0] = 0.0  # log(1)
+
+    for log_w in log_ws:
+        # Use slicing and vectorized update instead of a loop
+        log_dp[1:k+1] = logsumexp(
+            np.stack([
+                log_dp[1:k+1],        # without current w
+                log_dp[0:k] + log_w   # with current w
+            ]),
+            axis=0
+        )
+
+    return log_dp[k]
 
 
-def t_helper(i, C, ws):
-    return np.sum(ws[C]**i)
-
-# compute partial weight, dynamic programming
-# for fast recursive computation
-def partialWeight(k, C, ws):
-    if k <= 0:
-        return 1
-    if k > len(C):
-        return 0
-    ws_np = np.array(ws, dtype=float)
-
-    # dp_table[i] will store partialWeight(i, C, ws)
-    # Initialize with zeros, dp_table[0] = 1.0 for k=0 case
-    dp_table = np.zeros(k + 1, dtype=float)
-    dp_table[0] = 1.0
-    for current_k in range(1, k+1):
-        # f = lambda x: (-1)**(x+1) * t_helper(x, C, ws) * partialWeight(k-x, C, ws)
-        sum_f_terms = 0.0
-        for j in range(1, current_k + 1):
-            sum_f_terms += (-1)**(j + 1) * t_helper(j, C, ws_np) * dp_table[current_k - j]
-        dp_table[current_k] = (1.0 / current_k) * sum_f_terms
-    return dp_table[k]
-
-
-# get weights in max entropy model from marginal probabilities
-def getWeightsFromCoverage(ps, n, k, accuracy='4', maxIter=1000):
+def getWeightsFromCoverage(ps, n, k, accuracy='4', maxIter=500):
+    MAX_LOG_EXP = 300  # safe limit for exp to avoid inf
     acc = int(accuracy)
-    tol = 10**(-acc-1)
-    if np.abs(np.sum(ps) - k) > tol:
+    tol = 10**(-acc)
+    if abs(np.sum(ps) - k) > tol:
         print("Not a valid set of coverage probabilities.")
         return None
-    ws = ps
-    S = [*range(n)]
-    for _ in range(maxIter):
-        ws_rest_list = []
-        common_num_term = partialWeight(k-1, S[1:], ws)
+
+    ws = np.clip(np.array(np.log(ps), dtype=float), 1e-8, None)
+    S = list(range(n))
+    try:
+            log_common_num = log_partialWeight(k - 1, S[1:], ws)
+    except:
+        print(f"Iteration {it}: Failed to compute log_common_num")
+        return None
+
+    for it in range(maxIter):
+        log_ws_rest = []
         for j in range(1, n):
-            indices_for_denom = S[0:j] + S[j+1:n]
-            denom_term = partialWeight(k-1, indices_for_denom, ws)
-            if denom_term == 0:
-                val = 0
+            Sel = S[:j] + S[j+1:]
+            log_denom = log_partialWeight(k - 1, Sel, ws)
+
+            if not np.isfinite(log_denom) or ps[j] < 0:
+                log_ws_j = -np.inf
             else:
-                val = (ps[j] * common_num_term) / denom_term
-            ws_rest_list.append(val)
-        wsNew = np.concatenate(([ps[0]], ws_rest_list))
-        if np.max(np.abs(np.array(wsNew) - ws)) < tol:
-            break
-        else:
-            ws = wsNew
+                log_ws_j = np.log(ps[j]) + log_common_num - log_denom
+
+            log_ws_rest.append(log_ws_j)
+
+        # Clamp log values and exponentiate safely
+        log_ws_rest = np.array(log_ws_rest)
+        log_ws_rest = np.clip(log_ws_rest, -MAX_LOG_EXP, MAX_LOG_EXP)
+        ws_rest = np.exp(log_ws_rest)
+        
+        
+        # full weights vector
+        ws_new = np.concatenate(([ps[0]], ws_rest))
+
+        # normalize and clip
+        ws_new /= np.sum(ws_new)
+        ws_new = np.clip(ws_new, 1e-8, None)
+        ws_new *= k  # optional: match total marginal mass
+
+        diff = np.max(np.abs(ws_new - ws))
+        if diff < tol:
+            return ws_new
+        
+        if it > maxIter/2:
+            print("iter: {}, diff: {:.3f}".format(it, diff))
+        
+        ws = ws_new
+
+    print("Warning: maxIter reached without convergence")
     return ws
 
-# (assumes zero indexed i) get ith marginal from weights
-def computeSingleMarginalFromWeights(i, k, ws):
-    n = np.size(ws)
-    S = [*range(n)]
-    return ws[i]*partialWeight(k-1, S[0:i] + S[i+1:n], ws)/partialWeight(k, S, ws)
+
+def computeSingleMarginalFromWeights(k, ws):
+    ws = np.array(ws, dtype=float)
+    n = ws.size
+    S = list(range(n))
+    # Compute log e_k(S)
+    log_ek = log_partialWeight(k, S, ws)
+
+    # Pre-allocate marginals
+    p1 = np.zeros(n)
+
+    # Compute single marginals
+    for i in S:
+        subset = S.copy()
+        subset.remove(i)
+        log_ek_minus_1 = log_partialWeight(k - 1, subset, ws)
+        log_p = np.log(ws[i]) + log_ek_minus_1 - log_ek
+        p1[i] = np.exp(log_p)
+    return p1
+
 
 # (assumes distinct i,j, zero indexed) get (i,j)th marginal from weights
-def computePairMarginalFromWeights(i, j, k, ws):
-    if i==j:
-        return computeSingleMarginalFromWeights(i,k,ws)
-    if i!=j and k<=1:
-        return 0 
-    else:
-        n = np.size(ws)
-        C = [*range(n)]
-        C.remove(i)
-        C.remove(j)
-        return ws[i]*ws[j]*partialWeight(k-2, C, ws)/partialWeight(k, [*range(n)], ws)
+def computePairMarginalFromWeights(k, ws):
+    ws = np.array(ws, dtype=float)
+    n = ws.size
+    S = list(range(n))
+    # Compute log e_k(S)
+    log_ek = log_partialWeight(k, S, ws)
 
+    # pre-allocate marginals
+    p2 = np.zeros((n, n))
+
+    # Compute double marginals
+    for i in range(n):
+        for j in range(i + 1, n):
+            subset = S.copy()
+            subset.remove(i)
+            subset.remove(j)
+            log_ek_minus_2 = log_partialWeight(k - 2, subset, ws)
+            log_p = np.log(ws[i]) + np.log(ws[j]) + log_ek_minus_2 - log_ek
+            p2[i, j] = p2[j, i] = np.exp(log_p)
+    p1 = computeSingleMarginalFromWeights(k, ws)
+    for i in range(n):
+        p2[i,i] = p1[i]
+    return p2

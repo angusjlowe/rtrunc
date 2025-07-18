@@ -44,7 +44,7 @@ det_trunc_expec = np.abs(np.dot(m_det, vtrunc))**2
 
 print("Begin sampling procedure...")
 
-n_samples = 200
+n_samples = 300
 expec_samples = []
 for j in range(n_samples):
     if (j+1) % 20 == 0:

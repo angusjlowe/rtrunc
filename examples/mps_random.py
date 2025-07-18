@@ -1,6 +1,7 @@
 from mps_helpers import *
 import numpy as np
 from rtrunc import td_optimizer as tdo
+np.random.seed(25)
 
 def rtrunc(tensors, k, l):
     """"
@@ -21,9 +22,9 @@ def rtrunc(tensors, k, l):
 
 # parameter setup
 d=2
-bond_dim = 40
-k = 10
-gamma = 1.2
+bond_dim = 70
+k = 30
+gamma = 0.2
 n_samples = 50
 
 Z = np.array([[1,0],[0,-1]], dtype=float)
@@ -31,7 +32,7 @@ X = np.array([[0,1],[1,0]], dtype=float)
 I = np.array([[1,0],[0,1]], dtype=float)
 
 # what happens with the optimal k-incoherent density matrix?
-ns = [*range(9,13)]
+ns = [*range(10,14)]
 rtrunc_means = []
 rtrunc_stds = []
 dtrunc_expecs = []
@@ -46,31 +47,35 @@ for n in ns:
     obs = Is
     obs[0] = X
     obs[-1] = X
-    
-    # random mps setup
-    psi_tensors_original = get_random_mps(n,d,bond_dim)
-    print("Setting power law Schmidt coefficients...")
-    psi_tensors_original = power_law_schmidt_coeffs(psi_tensors_original, gamma)
-
-    # original expecs
-    orig_expec = np.real(mps_expec(psi_tensors_original, psi_tensors_original, obs))
-    orig_expecs.append(orig_expec)
-
-    # dtrunc state computation
-    psi_tensors = copy.deepcopy(psi_tensors_original)
     print("Computing dtrunc state")
-    for l in range(1,n):
-        psi_tensors = dtrunc(psi_tensors, k, l)
 
-    # dtrunc expecs
-    dtrunc_expec = np.real(mps_expec(psi_tensors, psi_tensors, obs))
+    for _ in range(100):
+        # random mps setup
+        psi_tensors_original = get_random_mps(n,d,bond_dim)
+        psi_tensors_original = power_law_schmidt_coeffs(psi_tensors_original, gamma)
+
+        # original expecs
+        orig_expec = np.real(mps_expec(psi_tensors_original, psi_tensors_original, obs))
+
+        # dtrunc state computation
+        psi_tensors = copy.deepcopy(psi_tensors_original)
+        for l in range(1,n):
+            psi_tensors = dtrunc(psi_tensors, k, l)
+         # dtrunc expecs
+        dtrunc_expec = np.real(mps_expec(psi_tensors, psi_tensors, obs))
+        # look for a case where the relative error is high
+        if np.abs(dtrunc_expec - orig_expec)/np.abs(orig_expec) > 0.1:
+            print("Instance found.")
+            break
+
+    orig_expecs.append(orig_expec)
     dtrunc_expecs.append(dtrunc_expec)
 
     # rtrunc states and expecs
     print("Computing rtrunc states")
     rtrunc_expecs = []
     for j in range(n_samples):
-        if (j+1) % 10 == 0:
+        if (j+1) % 1 == 0:
             print("Samples collected: {}".format(j+1))
         psi_tensors = copy.deepcopy(psi_tensors_original)
         for l in range(1,n-1):
@@ -85,16 +90,19 @@ for n in ns:
 
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
-
+rtrunc_means = np.array(rtrunc_means)
+#rtrunc_stds = np.array(rtrunc_stds)
+dtrunc_expecs = np.array(dtrunc_expecs)
+orig_expecs = np.array(orig_expecs)
 ax = plt.figure().gca()
 ax.xaxis.set_major_locator(MaxNLocator(integer=True))
-plt.title("Dtrunc vs. rtrunc on random MPSs with {} samples".format(n_samples))
+plt.title("Dtrunc vs. rtrunc on random MPSs. bd = {}, k={}".format(bond_dim, k))
 plt.xlabel("# of sites n")
-plt.ylabel("$\\langle X_1X_n\\rangle$")
+plt.ylabel("rel. error for $\\langle X_1X_n\\rangle$")
 print("Plot things, yerr size = {}, means size = {}".format(len(rtrunc_stds), len(rtrunc_means)))
-plt.errorbar(ns, rtrunc_means, yerr=rtrunc_stds, label="rtrunc", linestyle='none', capsize=4)
-plt.plot(ns, dtrunc_expecs, 's', label='dtrunc')
-plt.plot(ns, orig_expecs, 'o', label="true expec.")
+plt.errorbar(ns, np.abs(rtrunc_means-orig_expecs)/np.abs(orig_expecs), yerr=rtrunc_stds/np.abs(orig_expecs), label="rtrunc", linestyle='none', capsize=4)
+plt.plot(ns, np.abs(dtrunc_expecs-orig_expecs)/np.abs(orig_expecs), 's', label='dtrunc')
+#plt.plot(ns, orig_expecs, 'o', label="true expec.")
 print("Plotted")
 plt.legend()
 plt.show()

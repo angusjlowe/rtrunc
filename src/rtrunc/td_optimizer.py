@@ -133,40 +133,49 @@ class TDOptimizer():
                         return self.m,t
         raise RuntimeError("Valid r and ell not found.")
     
-    # draw-by-draw sampling procedure from Chen et al.
-    # intermediate marginals with set S given by q(j, S)
-    def sampleSubset(self, ps, n, k):
-        if self.ws == []:
+    def sampleSubset(self, ps, n, k, tol=1e-4):
+        if list(self.ws) == []:
             self.ws = getWeightsFromCoverage(ps, n, k)
-        ws = self.ws
-        S = [*range(n)]
+        ws = np.clip(np.array(self.ws, dtype=float), tol, None)
+        S = list(range(n))
         A = []
-        q_init = ps/k
-        i1 = np.random.choice(S, size=1, p=q_init)[0]
-        A.append(int(i1))
-        q_prev = q_init
-        if k > 1:
-            for el in range(1, k):
-                Sel = S.copy()
-                for i in A:
-                    Sel.remove(i)
-                ielminus1 = A[-1]
-                qel = lambda j: ((ws[ielminus1]*q_prev[j]-ws[j]*q_prev[ielminus1]) 
-                                 / ((k-el)*(ws[ielminus1]-ws[j])*q_prev[ielminus1])) if (j in Sel) else 0
-                qelnew = lambda j: qel(j) if qel(j) > 0 else 0
-                qels = [qelnew(j) for j in S]
-                s = np.sum(qels)
-                if s < 1e-4:
-                    remaining = [j for j in Sel if j not in A]
-                    if len(remaining) == 0:
-                        break
-                    ik = np.random.choice(remaining)
-                    q_prev = q_init
+
+        q_prev = ps / k
+        q_prev = np.clip(q_prev, 0, None)
+        q_prev /= np.sum(q_prev)
+        i1 = np.random.choice(S, size=1, p=q_prev)[0]
+        A.append(i1)
+
+        for el in range(1, k):
+            Sel = [j for j in S if j not in A]
+            i_prev = A[-1]
+            q_el = np.zeros(n)
+            denom_eps = tol
+
+            for j in Sel:
+                num = ws[i_prev] * q_prev[j] - ws[j] * q_prev[i_prev]
+                denom = (k - el) * (ws[i_prev] - ws[j]) * q_prev[i_prev]
+
+                if abs(denom) < denom_eps or q_prev[i_prev] == 0:
+                    q_el[j] = 0.0
                 else:
-                    qels = qels / s
-                    ik = np.random.choice(S, size=1, p=qels)[0]
-                    q_prev = qels
-                A.append(int(ik))
+                    q_el[j] = max(num / denom, 0.0)
+
+            total = np.sum(q_el)
+
+            if total < tol:
+                remaining = [j for j in Sel if j not in A]
+                if not remaining:
+                    break
+                ik = np.random.choice(remaining)
+                q_prev = ps / k
+            else:
+                q_el /= total
+                ik = np.random.choice(S, size=1, p=q_el)[0]
+                q_prev = q_el
+
+            A.append(int(ik))
+
         return A
 
 
@@ -177,7 +186,7 @@ class TDOptimizer():
             raise ValueError("r not yet computed. Run optimization first.")
         if self.m_top_k_norm == -1:
             self.m_top_k_norm = topKNorm(self.k, self.m)
-        if self.ps == []:
+        if list(self.ps) == []:
             self.ps = self.getMarginals()
         ps = self.ps
         S = self.sampleSubset(ps, self.l-self.k+self.r, self.r+1)
@@ -196,8 +205,8 @@ class TDOptimizer():
         r = self.r
         l = self.l
         ws = getWeightsFromCoverage(ps, l-k+r, r+1)
-        q = lambda i, j: computePairMarginalFromWeights(i, j, r+1, ws)
-        M = [[q(i,j)*theta**2 for i in [*range(0, l-k+r)]]
+        p2 = computePairMarginalFromWeights(r+1, ws)
+        M = [[p2[i,j]*theta**2 for i in [*range(0, l-k+r)]]
          for j in [*range(0, l-k+r)]]
         return np.array(M)
     
@@ -211,7 +220,7 @@ class TDOptimizer():
         r = self.r
         l = self.l
         n = self.n
-        if self.ps == []:
+        if list(self.ps) == []:
             self.ps = self.getMarginals()
         ps = self.ps
         theta = self.theta(r,l,t)
