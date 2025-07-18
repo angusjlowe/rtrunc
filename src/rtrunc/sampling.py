@@ -37,13 +37,13 @@ def getWeightsFromCoverage(ps, n, k, accuracy='4', maxIter=500):
 
     ws = np.clip(np.array(np.log(ps), dtype=float), 1e-8, None)
     S = list(range(n))
-    try:
-            log_common_num = log_partialWeight(k - 1, S[1:], ws)
-    except:
-        print(f"Iteration {it}: Failed to compute log_common_num")
-        return None
 
     for it in range(maxIter):
+        try:
+            log_common_num = log_partialWeight(k - 1, S[1:], ws)
+        except:
+            print(f"Iteration {it}: Failed to compute log_common_num")
+            return None
         log_ws_rest = []
         for j in range(1, n):
             Sel = S[:j] + S[j+1:]
