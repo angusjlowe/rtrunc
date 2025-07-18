@@ -22,17 +22,17 @@ def rtrunc(tensors, k, l):
 
 # parameter setup
 d=2
-bond_dim = 70
-k = 30
+bond_dim = 60
+k = 25
 gamma = 0.2
-n_samples = 50
+n_samples = 30
 
 Z = np.array([[1,0],[0,-1]], dtype=float)
 X = np.array([[0,1],[1,0]], dtype=float)
 I = np.array([[1,0],[0,1]], dtype=float)
 
 # what happens with the optimal k-incoherent density matrix?
-ns = [*range(10,14)]
+ns = [*range(10,15)]
 rtrunc_means = []
 rtrunc_stds = []
 dtrunc_expecs = []
@@ -47,6 +47,7 @@ for n in ns:
     obs = Is
     obs[0] = X
     obs[-1] = X
+    #obs[int(n/2)] = X
     print("Computing dtrunc state")
 
     for _ in range(100):
@@ -63,9 +64,10 @@ for n in ns:
             psi_tensors = dtrunc(psi_tensors, k, l)
          # dtrunc expecs
         dtrunc_expec = np.real(mps_expec(psi_tensors, psi_tensors, obs))
-        # look for a case where the relative error is high
-        if np.abs(dtrunc_expec - orig_expec)/np.abs(orig_expec) > 0.1:
-            print("Instance found.")
+        # look for a case where the relative error is reasonable
+        rel_error = np.abs(dtrunc_expec - orig_expec)/np.abs(orig_expec)
+        if rel_error > 0.2:
+            print("Instance found. Additive error: {:.5f}".format(np.abs(dtrunc_expec-orig_expec)))
             break
 
     orig_expecs.append(orig_expec)
@@ -98,9 +100,9 @@ ax = plt.figure().gca()
 ax.xaxis.set_major_locator(MaxNLocator(integer=True))
 plt.title("Dtrunc vs. rtrunc on random MPSs. bd = {}, k={}".format(bond_dim, k))
 plt.xlabel("# of sites n")
-plt.ylabel("rel. error for $\\langle X_1X_n\\rangle$")
+plt.ylabel("rel. error for $\\langle X_{\\lfloor n/2 \\rfloor}\\rangle$")
 print("Plot things, yerr size = {}, means size = {}".format(len(rtrunc_stds), len(rtrunc_means)))
-plt.errorbar(ns, np.abs(rtrunc_means-orig_expecs)/np.abs(orig_expecs), yerr=rtrunc_stds/np.abs(orig_expecs), label="rtrunc", linestyle='none', capsize=4)
+plt.errorbar(ns, np.abs(rtrunc_means-orig_expecs)/np.abs(orig_expecs), yerr=rtrunc_stds/np.abs(orig_expecs), fmt='o', label="rtrunc", linestyle='none', capsize=4)
 plt.plot(ns, np.abs(dtrunc_expecs-orig_expecs)/np.abs(orig_expecs), 's', label='dtrunc')
 #plt.plot(ns, orig_expecs, 'o', label="true expec.")
 print("Plotted")
