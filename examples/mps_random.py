@@ -1,7 +1,6 @@
 from mps_helpers import *
 import numpy as np
 from rtrunc import td_optimizer as tdo
-np.random.seed(25)
 
 def rtrunc(tensors, k, l):
     """"
@@ -22,17 +21,17 @@ def rtrunc(tensors, k, l):
 
 # parameter setup
 d=2
-bond_dim = 60
+bond_dim = 50
 k = 25
-gamma = 0.2
-n_samples = 30
+gamma = 0.15
+n_samples = 40
 
 Z = np.array([[1,0],[0,-1]], dtype=float)
 X = np.array([[0,1],[1,0]], dtype=float)
 I = np.array([[1,0],[0,1]], dtype=float)
 
 # what happens with the optimal k-incoherent density matrix?
-ns = [*range(10,15)]
+ns = [*range(9,11)]
 rtrunc_means = []
 rtrunc_stds = []
 dtrunc_expecs = []
@@ -66,7 +65,7 @@ for n in ns:
         dtrunc_expec = np.real(mps_expec(psi_tensors, psi_tensors, obs))
         # look for a case where the relative error is reasonable
         rel_error = np.abs(dtrunc_expec - orig_expec)/np.abs(orig_expec)
-        if rel_error > 0.2:
+        if rel_error > 0.1 or n < 10:
             print("Instance found. Additive error: {:.5f}".format(np.abs(dtrunc_expec-orig_expec)))
             break
 

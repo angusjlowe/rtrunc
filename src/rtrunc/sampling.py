@@ -1,5 +1,8 @@
 import numpy as np
 from scipy.special import logsumexp
+import time
+
+
 
 def log_partialWeight(k, C, ws):
     """Fast log-space dynamic programming for partialWeight."""
@@ -26,16 +29,60 @@ def log_partialWeight(k, C, ws):
 
     return log_dp[k]
 
+def getWeightsFromCoverage(ps, n, k, max_iter=1000, tol=0.5*1e-3,stepsize=1.):
+    """
+    Computes the vector w for the maximum entropy distribution over subsets of size k,
+    given specified marginals p, using function to compute marginals.
 
-def getWeightsFromCoverage(ps, n, k, accuracy='4', maxIter=500):
-    MAX_LOG_EXP = 300  # safe limit for exp to avoid inf
+    Parameters:
+    - p: array-like, shape (N,)
+        Desired marginal probabilities (must sum to k).
+    - k: int
+        Target subset size.
+    - computeSingleMarginalFromWeights: function
+        Function taking (k, w) and returning a vector of estimated marginals.
+    - max_iter: int
+        Maximum number of iterations.
+    - tol: float
+        Convergence tolerance (L1 norm of marginal error).
+
+    Returns:
+    - ws: ndarray, shape (N,)
+        The exponential of the dual parameters defining the MaxEnt distribution.
+    """
+    if abs(np.sum(ps) - k) > tol:
+        print("Not a valid set of coverage probabilities.")
+        return None
+    ps = np.array(ps)
+    log_ws = np.log(ps.copy())
+
+    for it in range(max_iter):
+        if it > max_iter/2:
+            print("On it: {}".format(it+1))
+        # Compute expected marginals under current w
+        expected_ps = computeSingleMarginalFromWeights(k, np.exp(log_ws))
+
+        # Check convergence
+        error = np.linalg.norm(expected_ps - ps, 1)
+        if error < tol:
+            break
+
+        # Update step (gradient ascent on dual)
+        log_ws += ps - stepsize*expected_ps
+
+    return np.exp(log_ws)
+
+
+def getWeightsFromCoverage2(ps, n, k, accuracy='3', maxIter=1000):
+    MAX_LOG_EXP = 500  # safe limit for exp to avoid inf
     acc = int(accuracy)
     tol = 10**(-acc)
     if abs(np.sum(ps) - k) > tol:
         print("Not a valid set of coverage probabilities.")
         return None
 
-    ws = np.clip(np.array(np.log(ps), dtype=float), 1e-8, None)
+    ws = np.clip(np.array(ps, dtype=float), 1e-8, None)
+    #ws = np.ones(ps.size)
     S = list(range(n))
 
     for it in range(maxIter):
