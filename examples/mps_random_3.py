@@ -30,10 +30,10 @@ def rtrunc(tensors, k, l, n_samples=1):
 
 # parameter setup
 d=2
-bond_dim = 20
-k = 10
-gamma = 0.15
-n_samples = 300
+bond_dim = 55
+k = 24
+gamma = 0.14
+n_samples = 80
 
 Z = np.array([[1,0],[0,-1]], dtype=float)
 X = np.array([[0,1],[1,0]], dtype=float)
@@ -41,7 +41,7 @@ I = np.array([[1,0],[0,1]], dtype=float)
 
 # what happens with the optimal k-incoherent density matrix?
 ns = [*range(10,11)]
-n_random_tensors = 15
+n_random_tensors = 25
 rtrunc_errss = []
 dtrunc_errss = []
 for n in ns:
@@ -78,7 +78,7 @@ for n in ns:
             dtrunc_expec = np.real(mps_expec(psi_tensors, psi_tensors, obs))
             # look for a case where the relative error is reasonable
             rel_error = np.abs(dtrunc_expec - orig_expec)/np.abs(orig_expec)
-            if rel_error > 0.1 or n < 10:
+            if rel_error > 0.2 or n < 10:
                 print("Instance found. Additive error: {:.5f}".format(np.abs(dtrunc_expec-orig_expec)))
                 break
 
@@ -126,15 +126,20 @@ from matplotlib.ticker import MaxNLocator
 ax = plt.figure().gca()
 ax.xaxis.set_major_locator(MaxNLocator(integer=True))
 plt.title("Dtrunc vs. rtrunc on random MPSs. bd = {}, k={}".format(bond_dim, k))
-plt.xlabel("1=dtrunc, 2=rtrunc")
+plt.xlabel("samples")
 plt.ylabel("rel. error for $\\langle X_{\\lfloor n/2 \\rfloor}\\rangle$")
 print("Plot things, yerr size = {}, means size = {}".format(len(rtrunc_stds), len(rtrunc_means)))
 for j in range(len(ns)):
     n = ns[j]
     rtrunc_errs = rtrunc_errss[j]
     drtrunc_errs = dtrunc_errss[j]
-    err_data = np.array([dtrunc_errs,rtrunc_errs]).T
-    plt.violinplot(err_data)
+    sort_indices = np.argsort(dtrunc_errs)
+    rtrunc_errs = rtrunc_errs[sort_indices]
+    dtrunc_errs = dtrunc_errs[sort_indices]
+    xs = np.arange(1,rtrunc_errs.size + 1)
+    plt.plot(xs, dtrunc_errs, 'o-', label='dtrunc, n={}'.format(n))
+    plt.plot(xs, rtrunc_errs, 'o-', label='rtrunc, n={}'.format(n))
 print("Plotted")
-#plt.legend()
+plt.legend()
+plt.yscale('log')
 plt.show()

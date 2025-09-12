@@ -1,6 +1,7 @@
 from mps_helpers import *
 import numpy as np
 from rtrunc import td_optimizer as tdo
+np.random.seed(42)
 
 def rtrunc(tensors, k, l):
     """"
@@ -20,63 +21,50 @@ def rtrunc(tensors, k, l):
     return new_tensors
 
 # parameter setup
-d=2
-bond_dim = 50
-k = 25
-gamma = 0.15
-n_samples = 40
-
+n = 11
+d = 2
+bond_dim = 30
+gamma = 0.30
+n_samples = 100
+ks = np.arange(5,20,1)
 Z = np.array([[1,0],[0,-1]], dtype=float)
 X = np.array([[0,1],[1,0]], dtype=float)
 I = np.array([[1,0],[0,1]], dtype=float)
 
-# what happens with the optimal k-incoherent density matrix?
-ns = [*range(9,11)]
+# observable setup
+Zs = [Z] * n
+Xs = [X] * n
+Is = [I] * n
+obs = Is
+obs[5] = Z
+
+# random mps setup
+psi_tensors_original = get_random_mps(n,d,bond_dim)
+psi_tensors_original = power_law_schmidt_coeffs(psi_tensors_original, gamma)
+
+# original expecs
+orig_expec = np.real(mps_expec(psi_tensors_original, psi_tensors_original, obs))
+
+
 rtrunc_means = []
 rtrunc_stds = []
 dtrunc_expecs = []
-orig_expecs = []
-for n in ns:
-    print("\n n = {} sites".format(n))
-
-    # observable setup
-    Zs = [Z] * n
-    Xs = [X] * n
-    Is = [I] * n
-    obs = Is
-    obs[0] = X
-    obs[-1] = X
-    #obs[int(n/2)] = X
-    print("Computing dtrunc state")
-
-    for _ in range(100):
-        # random mps setup
-        psi_tensors_original = get_random_mps(n,d,bond_dim)
-        psi_tensors_original = power_law_schmidt_coeffs(psi_tensors_original, gamma)
-
-        # original expecs
-        orig_expec = np.real(mps_expec(psi_tensors_original, psi_tensors_original, obs))
-
-        # dtrunc state computation
-        psi_tensors = copy.deepcopy(psi_tensors_original)
-        for l in range(1,n):
-            psi_tensors = dtrunc(psi_tensors, k, l)
-         # dtrunc expecs
-        dtrunc_expec = np.real(mps_expec(psi_tensors, psi_tensors, obs))
-        # look for a case where the relative error is reasonable
-        rel_error = np.abs(dtrunc_expec - orig_expec)/np.abs(orig_expec)
-        if rel_error > 0.1 or n < 10:
-            print("Instance found. Additive error: {:.5f}".format(np.abs(dtrunc_expec-orig_expec)))
-            break
-
-    orig_expecs.append(orig_expec)
+for k in ks:
+    print("k={}".format(k))
+    print("Computing dtrunc expec")
+    # dtrunc state computation
+    psi_tensors = copy.deepcopy(psi_tensors_original)
+    for l in range(1,n):
+        psi_tensors = dtrunc(psi_tensors, k, l)
+        # dtrunc expecs
+    dtrunc_expec = np.real(mps_expec(psi_tensors, psi_tensors, obs))
     dtrunc_expecs.append(dtrunc_expec)
 
     # rtrunc states and expecs
     print("Computing rtrunc states")
     rtrunc_expecs = []
     for j in range(n_samples):
-        if (j+1) % 1 == 0:
+        if (j+1) % 10 == 0:
             print("Samples collected: {}".format(j+1))
         psi_tensors = copy.deepcopy(psi_tensors_original)
         for l in range(1,n-1):
@@ -91,19 +79,24 @@ for n in ns:
 
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
+plt.rcParams['text.usetex'] = True
+plt.rc('font', size=16)
+
 rtrunc_means = np.array(rtrunc_means)
-#rtrunc_stds = np.array(rtrunc_stds)
+rtrunc_stds = np.array(rtrunc_stds)
 dtrunc_expecs = np.array(dtrunc_expecs)
-orig_expecs = np.array(orig_expecs)
 ax = plt.figure().gca()
 ax.xaxis.set_major_locator(MaxNLocator(integer=True))
-plt.title("Dtrunc vs. rtrunc on random MPSs. bd = {}, k={}".format(bond_dim, k))
-plt.xlabel("# of sites n")
-plt.ylabel("rel. error for $\\langle X_{\\lfloor n/2 \\rfloor}\\rangle$")
-print("Plot things, yerr size = {}, means size = {}".format(len(rtrunc_stds), len(rtrunc_means)))
-plt.errorbar(ns, np.abs(rtrunc_means-orig_expecs)/np.abs(orig_expecs), yerr=rtrunc_stds/np.abs(orig_expecs), fmt='o', label="rtrunc", linestyle='none', capsize=4)
-plt.plot(ns, np.abs(dtrunc_expecs-orig_expecs)/np.abs(orig_expecs), 's', label='dtrunc')
-#plt.plot(ns, orig_expecs, 'o', label="true expec.")
-print("Plotted")
+#plt.title("Dtrunc vs. rtrunc on random MPSs. bd = {}, k={}".format(bond_dim, k))
+plt.xlabel("bond dim. cutoff")
+plt.ylabel("estimate /$\ \\langle Z_{6}\\rangle$")
+#print("Plot things, yerr size = {}, means size = {}".format(len(rtrunc_stds), len(rtrunc_means)))
+plt.errorbar(ks, rtrunc_means/orig_expec, yerr=rtrunc_stds/np.abs(orig_expec),
+             fmt='o', label="rtrunc mps", capsize=4, color='blue')
+plt.plot(ks, dtrunc_expecs/orig_expec, 's', label='dtrunc mps', color='red')
+#plt.plot(ks, np.ones(ks.size)*orig_expec, '--', label='true expec.')
+xs = np.arange(ks[0]-1,ks[-1]+1,0.1)
+plt.plot(ks, np.ones(ks.size), '--', color='black')
+plt.yscale('log')
 plt.legend()
 plt.show()

@@ -29,7 +29,7 @@ def log_partialWeight(k, C, ws):
 
     return log_dp[k]
 
-def getWeightsFromCoverage(ps, n, k, max_iter=1000, tol=0.5*1e-3,stepsize=1.):
+def getWeightsFromCoverage(ps, n, k, max_iter=1000, tol=1e-6):
     """
     Computes the vector w for the maximum entropy distribution over subsets of size k,
     given specified marginals p, using function to compute marginals.
@@ -68,7 +68,7 @@ def getWeightsFromCoverage(ps, n, k, max_iter=1000, tol=0.5*1e-3,stepsize=1.):
             break
 
         # Update step (gradient ascent on dual)
-        log_ws += ps - stepsize*expected_ps
+        log_ws += 1/(expected_ps*(1-expected_ps)) * (ps - expected_ps)
 
     return np.exp(log_ws)
 
