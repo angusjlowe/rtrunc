@@ -26,7 +26,7 @@ d = 2
 bond_dim = 30
 gamma = 0.30
 n_samples = 100
-ks = np.arange(5,20,1)
+ks = np.arange(5,6,1)
 Z = np.array([[1,0],[0,-1]], dtype=float)
 X = np.array([[0,1],[1,0]], dtype=float)
 I = np.array([[1,0],[0,1]], dtype=float)
