@@ -1,4 +1,6 @@
+<p align="center">
 <img src="static/img/animation.gif" alt="Randomized Truncation" width="400"/>
+</p>
 
 <a href="https://github.com/angusjlowe/rtrunc">rtrunc</a> is a small package to compute randomized truncations of
 pure quantum states, optimized with respect to the following distance measures
@@ -189,8 +191,10 @@ trace distance \epsilon.
 
 ### Making that snazzy animation in this README file
 
-Use the code in src/random_subset_text_gif.py.  You will need to obtain the file This code requires the file DejaVuSans.ttf, which you can get [here](https://dejavu-fonts.github.io/).
+Use the code in src/random_subset_text_gif.py.  You will need to obtain the file DejaVuSans.ttf, which you can get [here](https://dejavu-fonts.github.io/).
 
  The command that produced this animation is:
- 
+
 ```python random_subset_text_gif.py --text "Randomized\nTruncation" --font_size 48 --width 400 --height 200  --fps 6 --seconds 6 --transparent --draw_spaces --line_height 40 --fg "#000000" --out "animation.gif"```
+
+![sdfa](static/img/abc.png)
