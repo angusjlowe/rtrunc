@@ -197,4 +197,4 @@ Use the code in src/random_subset_text_gif.py.  You will need to obtain the file
 
 ```python random_subset_text_gif.py --text "Randomized\nTruncation" --font_size 48 --width 400 --height 200  --fps 6 --seconds 6 --transparent --draw_spaces --line_height 40 --fg "#000000" --out "animation.gif"```
 
-![sdfa](static/img/abc.png)
+![Always Be Choosing randomly](static/img/abc.png)
