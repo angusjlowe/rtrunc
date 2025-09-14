@@ -187,3 +187,10 @@ trace distance \epsilon.
 
 ![power_law_plot](static/img/power_law_plot_1.png)
 
+### Making that snazzy animation in this README file
+
+Use the code in src/random_subset_text_gif.py.  You will need to obtain the file This code requires the file DejaVuSans.ttf, which you can get [here](https://dejavu-fonts.github.io/).
+
+ The command that produced this animation is:
+ 
+```python random_subset_text_gif.py --text "Randomized\nTruncation" --font_size 48 --width 400 --height 200  --fps 6 --seconds 6 --transparent --draw_spaces --line_height 40 --fg "#000000" --out "animation.gif"```
