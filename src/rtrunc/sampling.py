@@ -57,7 +57,7 @@ def getWeightsFromCoverage(ps, n, k, max_iter=1000, tol=1e-6):
     log_ws = np.log(ps.copy())
 
     for it in range(max_iter):
-        if it > max_iter/2:
+        if it > max_iter/2 and (it + 1) % 100==0:
             print("On it: {}".format(it+1))
         # Compute expected marginals under current w
         expected_ps = computeSingleMarginalFromWeights(k, np.exp(log_ws))
