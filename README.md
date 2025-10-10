@@ -161,7 +161,8 @@ plt.plot(xs, rob_ys, '-', label='rtrunc (robustness)', color='orange')
 plt.fill_between(xs, rob_ys-rob_stds, rob_ys+rob_stds, color='orange', alpha=0.2)
 
 # plot error in estimate from deterministic trunc.
-plt.plot(xs, np.ones(n_samples)*np.abs(det_trunc_expec - true_expec), '--', color='black', label='closed-form dtrunc. expec. diff.')
+plt.plot(xs, np.ones(n_samples)*np.abs(det_trunc_expec - true_expec),'--',
+                    color='red', label='dtrunc')
 
 # show plot
 plt.xlabel('no. of samples')
