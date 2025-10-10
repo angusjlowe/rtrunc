@@ -183,8 +183,8 @@ class TDOptimizer():
         return A
 
 
-    # Samples a random pure state according to the right (max-entropy)
-    # distribution using Procedure 1 in Sec. 3 of Chen et al.
+    # Samples a random pure state according to the max-entropy
+    # distribution
     def sampleOptimalTDState(self):
         if self.r < 0:
             raise ValueError("r not yet computed. Run optimization first.")
@@ -201,7 +201,7 @@ class TDOptimizer():
             phi2[idx] = theta
         phi3 = np.zeros(self.n - self.l + 1)
         phi = np.concatenate((phi1, phi2, phi3))
-        phi = phi/np.linalg.norm(phi)
+        phi = phi/(np.linalg.norm(phi)+1e-16)
         return phi[self.inverse_idx]
     
     

@@ -1,6 +1,7 @@
 import numpy as np
 import copy
 
+
 def mps_expec(tensors1, tensors2, obs_tensors):
     n = len(tensors1)
     if n != len(tensors2) or n!=len(obs_tensors):
@@ -39,6 +40,7 @@ def mps_inner_prod(tensors1, tensors2):
     obs_tensors = [I] * n
     return mps_expec(tensors1, tensors2, obs_tensors)
 
+
 def right_canonical_form(tensors):
     n = len(tensors)
     d = tensors[0].shape[0]
@@ -47,9 +49,11 @@ def right_canonical_form(tensors):
     # last tensor
     matrix = new_tensors[n-1]
     U, s, Vh = np.linalg.svd(matrix, full_matrices=False)
-    S = np.diag(s)
+    norm = np.linalg.norm(s)
+    s_normalized = s / (norm + 1e-16)
+    S = np.diag(s_normalized)
     new_tensors[n-1] = Vh.reshape(-1,d)
-    new_tensors[n-2] = np.einsum('aib,bc,cd->aid', new_tensors[n-2], U, S)
+    new_tensors[n-2] = norm*np.einsum('aib,bc,cd->aid', new_tensors[n-2], U, S)
 
     # right sweep
     for j in range(n-2, 1, -1):
@@ -57,18 +61,23 @@ def right_canonical_form(tensors):
         tensor = new_tensors[j]
         matrix = tensor.reshape(dims[0],-1)
         U, s, Vh = np.linalg.svd(matrix, full_matrices=False)
-        S = np.diag(s)
+        norm = np.linalg.norm(s)
+        s_normalized = s / (norm + 1e-16)
+        S = np.diag(s_normalized)
         new_tensors[j] = Vh.reshape(-1, d, dims[2])
-        new_tensors[j-1] = np.einsum('aib,bc,cd->aid', new_tensors[j-1], U, S)
+        US_matrix = np.einsum('bc,cd->bd', U, S)
+        new_tensors[j-1] = norm*np.einsum('aib,bd->aid', new_tensors[j-1], US_matrix)
     
     # last tensor in right sweep
     dims = new_tensors[1].shape
     tensor = new_tensors[1]
     matrix = tensor.reshape(dims[0],-1)
     U, s, Vh = np.linalg.svd(matrix, full_matrices=False)
+    norm = np.linalg.norm(s)
+    s_normalized = s / (norm + 1e-16)
     S = np.diag(s)
     new_tensors[1] = Vh.reshape(-1, d, dims[2])
-    new_tensors[0] = np.einsum('ia,ab,bc->ic', new_tensors[0], U, S)
+    new_tensors[0] = norm*np.einsum('ia,ab,bc->ic', new_tensors[0], U, S)
     return new_tensors
 
 
@@ -86,9 +95,11 @@ def mixed_canonical_form(tensors, l):
     if l > 1:
         matrix = new_tensors[0]
         U, s, Vh = np.linalg.svd(matrix, full_matrices=False)
-        S = np.diag(s)
+        norm = np.linalg.norm(s)
+        s_normalized = s / (norm + 1e-16)
+        S = np.diag(s_normalized)
         new_tensors[0] = U
-        new_tensors[1] = np.einsum('ab,bc,cid->aid', S, Vh, new_tensors[1])
+        new_tensors[1] = norm*np.einsum('ab,bc,cid->aid', S, Vh, new_tensors[1])
 
         # second to (l-1)th tensor
         for j in range(1, l-1):
@@ -96,32 +107,35 @@ def mixed_canonical_form(tensors, l):
             tensor = new_tensors[j]
             matrix = tensor.reshape(-1, dims[-1])
             U, s, Vh = np.linalg.svd(matrix, full_matrices=False)
-            S = np.diag(s)
+            norm = np.linalg.norm(s)
+            s_normalized = s / (norm + 1e-16)
+            S = np.diag(s_normalized)
             new_tensors[j] = U.reshape(dims[0], d, -1)
-            new_tensors[j+1] = np.einsum('ab,bc,cid->aid', S, Vh, new_tensors[j+1])
+            new_tensors[j+1] = norm*np.einsum('ab,bc,cid->aid', S, Vh, new_tensors[j+1])
 
     # lth tensor
     dims = new_tensors[l-1].shape
     tensor = new_tensors[l-1]
     matrix = tensor.reshape(-1, dims[-1])
     U, s, Vh = np.linalg.svd(matrix, full_matrices=False)
-    #print(U.conj().T @ U)
-    #print(s)
-    Sl = np.diag(s)
+    norm = np.linalg.norm(s)
+    s_normalized = s / (norm + 1e-16)
+    Sl = np.diag(s_normalized)
     if l!=1:
         new_tensors[l-1] = U.reshape(dims[0], d, -1)
     else:
         new_tensors[l-1] = U
     if l!=n-1:
-        new_tensors[l] = np.einsum('ab,bic->aic', Vh, new_tensors[l])
+        new_tensors[l] = norm*np.einsum('ab,bic->aic', Vh, new_tensors[l])
     else:
-        new_tensors[l] = np.einsum('ab,bi->ai', Vh, new_tensors[l])
+        new_tensors[l] = norm*np.einsum('ab,bi->ai', Vh, new_tensors[l])
 
 
     # output has n+1 tensors, since there is Schmidt diagonal matrix in middle
     output = new_tensors[:l] + [Sl] + new_tensors[l:]
     #print("Shapes are {}".format([x.shape for x in output]))
     return output
+
 
 def get_mps_tensors_from_canonical(tensors):
     n = len(tensors)
@@ -228,34 +242,74 @@ def power_law_schmidt_coeffs(tensors, gamma):
         psi_tensors = get_mps_tensors_from_canonical(psi_can)
     return psi_tensors
 
-def squared_schmit_coeffs(tensors):
-    n = len(tensors)
-    psi_tensors = copy.deepcopy(tensors)
-    for l in range(1,n):
-        psi_can = mixed_canonical_form(psi_tensors, l)
-        r = psi_can[l].shape[0]
-        xs = np.arange(1,r+1)
-        new_schmidts = (r - xs + 1)**2
-        new_schmidts = new_schmidts/np.linalg.norm(new_schmidts)
-        psi_can[l] = np.diag(new_schmidts)
-        psi_tensors = get_mps_tensors_from_canonical(psi_can)
-    return psi_tensors
 
-def dtrunc(tensors, k, l):
-    """"
-    Get deterministic k-truncation at lth site. Expects l
-    between 1 and n-1. Assumes schmidt values already sorted.
+def tensor_to_fixedbond_mps(psi, d, n, chi=None):
     """
-    new_tensors = mixed_canonical_form(tensors, l)
-    #print("Just to be safe: (l+1)th tensor has shape: {}".format(new_tensors[l].shape))
-    schmidts = np.diag(new_tensors[l])
-    if k < schmidts.size:
-        new_schmidts = np.concatenate((schmidts[:k], np.zeros(schmidts.size-k)))
-    else:
-        new_schmidts = schmidts
-    new_schmidts = new_schmidts/np.linalg.norm(new_schmidts)
-    #print(schmidts, new_schmidts)
-    #print(np.linalg.norm(schmidts), np.linalg.norm(new_schmidts))
-    new_tensors[l] = np.diag(new_schmidts)
-    new_tensors = get_mps_tensors_from_canonical(new_tensors)
-    return new_tensors
+    Convert a quantum state into an open-boundary MPS with uniform bond dimension.
+
+    Parameters
+    ----------
+    psi : np.ndarray
+        State vector of length d**n (or shape (d,)*n).
+    d : int
+        Physical dimension at each site.
+    n : int
+        Number of sites.
+    chi : int or None
+        Desired bond dimension. If None, use chi = d**(n//2).
+
+    Returns
+    -------
+    mps : list of np.ndarray
+        List of tensors [A0, A1, ..., A_{n-1}] with shapes:
+          A0: (d, chi)
+          Ai: (chi, d, chi) for 1 <= i <= n-2
+          A_{n-1}: (chi, d)
+    """
+    psi = np.asarray(psi)
+    if psi.ndim == 1:
+        psi = psi.reshape((d,) * n)
+    elif psi.shape != (d,) * n:
+        raise ValueError(f"psi must have shape {(d,)*n} or length d**n = {d**n}")
+
+    if chi is None:
+        chi = d ** (n // 2)
+    chi = int(chi)
+
+    mps = []
+    tensor = psi
+    left_dim = 1  # leftmost virtual leg initially 1-dim
+
+    for site in range(n - 1):
+        # reshape tensor to matrix: (left_dim * d, remaining)
+        tensor = tensor.reshape(left_dim * d, -1)
+        U, S, Vh = np.linalg.svd(tensor, full_matrices=False)
+
+        # truncate/pad to fixed bond dimension chi
+        U = U[:, :min(chi, U.shape[1])]
+        S = S[:min(chi, len(S))]
+        Vh = Vh[:min(chi, Vh.shape[0])]
+
+        # pad up to chi if needed
+        if U.shape[1] < chi:
+            pad = chi - U.shape[1]
+            U = np.pad(U, ((0, 0), (0, pad)), mode='constant')
+            S = np.pad(S, (0, pad), mode='constant')
+            Vh = np.pad(Vh, ((0, pad), (0, 0)), mode='constant')
+
+        # reshape U to (left_dim, d, chi)
+        A = U.reshape(left_dim, d, chi)
+        # remove singleton leftmost index at first site
+        if site == 0:
+            A = A[0, :, :]  # shape (d, chi)
+        mps.append(A)
+
+        # propagate remainder
+        tensor = np.diag(S) @ Vh
+        left_dim = chi
+
+    # last site tensor: shape (chi, d)
+    A_last = tensor.reshape(chi, d)
+    mps.append(A_last)
+
+    return mps

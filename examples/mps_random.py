@@ -2,12 +2,12 @@ from mps_helpers import *
 import numpy as np
 from rtrunc import td_optimizer as tdo
 
-np.random.seed(59)
+np.random.seed(45)
 
 def rtrunc(tensors, k, l):
     """"
     Get random k-truncation at lth site. Expects l
-    between 1 and n-1. Assumes schmidt values already sorted.
+    between 1 and n-1.
     """
     new_tensors = mixed_canonical_form(tensors, l)
     schmidts = np.diag(new_tensors[l])
@@ -22,28 +22,38 @@ def rtrunc(tensors, k, l):
     return new_tensors
 
 
-def rtrunc_subopt(tensors, k, l):
+def dtrunc(tensors, k, l):
     """"
-    Get (hopefully) suboptimal random k-truncation at lth site. Expects l
-    between 1 and n-1. Assumes schmidt values already sorted.
+    Get deterministic k-truncation at lth site. Expects l
+    between 1 and n-1.
     """
     new_tensors = mixed_canonical_form(tensors, l)
+    #print("Just to be safe: (l+1)th tensor has shape: {}".format(new_tensors[l].shape))
     schmidts = np.diag(new_tensors[l])
     if k < schmidts.size:
-        newTDOpt = tdo.TDOptimizer(k, schmidts)
-        new_schmidts = newTDOpt.sampleSuboptimalState()
+        new_schmidts = np.concatenate((schmidts[:k], np.zeros(schmidts.size-k)))
     else:
         new_schmidts = schmidts
+    new_schmidts = new_schmidts/np.linalg.norm(new_schmidts + 1e-16)
+    #print(schmidts, new_schmidts)
+    #print(np.linalg.norm(schmidts), np.linalg.norm(new_schmidts))
     new_tensors[l] = np.diag(new_schmidts)
     new_tensors = get_mps_tensors_from_canonical(new_tensors)
     return new_tensors
 
 
+def haar_random_state(d):
+    # Draw complex Gaussian entries
+    x = np.random.randn(d) + 1j * np.random.randn(d)
+    # Normalize
+    psi = x / np.linalg.norm(x)
+    return psi
+
 # parameter setup
 n = 9
 d = 2
 bond_dim = 16
-gamma = 0.8
+gamma = 0.2
 n_samples = 100
 ks = np.arange(2,bond_dim+1,1)
 Z = np.array([[1,0],[0,-1]], dtype=float)
@@ -55,14 +65,14 @@ Zs = [Z] * n
 Xs = [X] * n
 Is = [I] * n
 obs = Is
-obs[int(d/2)] = Z
+obs[int(n/2)] = Z
 #obs[4] = Z
 #obs[8] = X
 
 # random mps setup
-psi_tensors_original = get_random_mps(n,d,bond_dim)
+psi = haar_random_state(d**n)
+psi_tensors_original = tensor_to_fixedbond_mps(psi, d, n, bond_dim)
 psi_tensors_original = power_law_schmidt_coeffs(psi_tensors_original, gamma)
-#psi_tensors_original = squared_schmit_coeffs(psi_tensors_original)
 
 psi_tensors_original = normalize(psi_tensors_original)
 
@@ -103,23 +113,6 @@ for k in ks:
     rtrunc_std = np.std(rtrunc_expecs, ddof=1)/np.sqrt(n_samples)
     rtrunc_means.append(rtrunc_mean)
     rtrunc_stds.append(rtrunc_std)
-
-    # suboptimal rtrunc states and expecs
-    print("Computing subopt. rtrunc states")
-    rtrunc_subopt_expecs = []
-    for j in range(n_samples):
-        if (j+1) % 10 == 0:
-            print("Samples collected: {}".format(j+1))
-        psi_tensors = copy.deepcopy(psi_tensors_original)
-        for l in range(1,n):
-            psi_tensors = rtrunc_subopt(psi_tensors, k, l)
-        trunc_expec = np.real(mps_expec(psi_tensors, psi_tensors, obs))
-        rtrunc_subopt_expecs.append(trunc_expec)
-    rtrunc_subopt_mean = np.mean(rtrunc_subopt_expecs)
-    print("rtrunc subopt. estimate is {:.5f}".format(rtrunc_subopt_mean))
-    rtrunc_subopt_std = np.std(rtrunc_subopt_expecs, ddof=1)/np.sqrt(n_samples)
-    rtrunc_subopt_means.append(rtrunc_subopt_mean)
-    rtrunc_subopt_stds.append(rtrunc_subopt_std)
 
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
