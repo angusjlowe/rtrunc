@@ -75,7 +75,7 @@ def right_canonical_form(tensors):
     U, s, Vh = np.linalg.svd(matrix, full_matrices=False)
     norm = np.linalg.norm(s)
     s_normalized = s / (norm + 1e-16)
-    S = np.diag(s)
+    S = np.diag(s_normalized)
     new_tensors[1] = Vh.reshape(-1, d, dims[2])
     new_tensors[0] = norm*np.einsum('ia,ab,bc->ic', new_tensors[0], U, S)
     return new_tensors
@@ -226,7 +226,7 @@ def get_random_mps(n,d,bond_dim):
     # normalize
     norm = np.sqrt(mps_inner_prod(tensors, tensors))
     for j in range(n):
-        tensors[j] = tensors[j] / norm**(1/n)
+        tensors[j] = tensors[j] / (norm**(1/n)+1e-16)
     return tensors
 
 def power_law_schmidt_coeffs(tensors, gamma):
@@ -237,7 +237,7 @@ def power_law_schmidt_coeffs(tensors, gamma):
         r = psi_can[l].shape[0]
         xs = np.arange(1,r+1)
         new_schmidts = xs**(-gamma)
-        new_schmidts = new_schmidts/np.linalg.norm(new_schmidts)
+        new_schmidts = new_schmidts/(np.linalg.norm(new_schmidts)+1e-16)
         psi_can[l] = np.diag(new_schmidts)
         psi_tensors = get_mps_tensors_from_canonical(psi_can)
     return psi_tensors

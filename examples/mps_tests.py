@@ -2,12 +2,13 @@ import numpy as np
 import time
 from mps_helpers import *
 
-n=15
+n=9
 d=2
 l=5
-bond_dim = 60
+bond_dim = 16
 t1 = time.time()
 tensors = get_random_mps(n,d,bond_dim)
+tensors = normalize(tensors)
 t2 = time.time()
 print("Time taken for first get_random_mps is {:.3f}s".format(t2-t1))
 tensors = power_law_schmidt_coeffs(tensors,0.2)
