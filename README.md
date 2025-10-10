@@ -7,7 +7,7 @@ pure quantum states, optimized with respect to the following distance measures
 (as of the current version): (i) trace distance and (ii) robustness.
 
 <p align="center">
-<img src="static/img/trunc_visualization_1.png" alt="trunc_visualization_1" width="600"/>
+<img src="static/img/density_matrix_plots.png" alt="density matrix plots" width="600"/>
 </p>
 
 ## Installation
@@ -40,7 +40,9 @@ If this works, you should be good to go!
 
 ## Example usage
 
-Most of the example code in this section is contained in examples/td_opt_example.py.
+Most of the example code in this section is contained in examples folder. The code
+to produce the grayscale density matrix plots above is contained in
+examples/density_matrix_plots.py.
 
 ### Computing the trace distance
 First, we'll import the necessary packages and create a random quantum
@@ -53,7 +55,7 @@ just call the module itself rtrunc.
 import numpy as np
 from rtrunc import td_optimizer as rtrunc
 
-n, k = 20, 12
+n, k = 150, 50 
 
 # normal, random
 v = np.random.normal(0,1,n)
@@ -75,7 +77,7 @@ print("Optimal pure trace distance is {:.3f}".format(np.sqrt(1-fid**2)))
 In this case, we get
 
 ```console
-Optimal pure trace distance is 0.172
+Optimal pure trace distance is 0.370
 ```
 
 To compute the trace distance and unit vector m corresponding to
@@ -88,9 +90,9 @@ print("Optimal mixed trace distance is {:.3f}".format(td))
 which gives us
 
 ```console
-Optimal mixed trace distance is 0.089
+Optimal mixed trace distance is 0.268
 ```
-in this case, almost twice as accurate.
+which is more accurate, as expected.
 
 
 ### Sampling
@@ -122,12 +124,18 @@ this observable, and then store the data.
 
 ```python
 # sample to compute expec. val.
-n_samples = 200
+n_samples = 1000
 expec_samples = []
+rob_expec_samples = []
 for j in range(n_samples):
+    if (j+1) % 20 == 0:
+        print("Sample {}".format(j+1))
     phi = tdo.sampleOptimalTDState()
     expec = np.abs(np.dot(phi, m_det))**2
     expec_samples.append(expec)
+    phi = ro.sampleOptimalRobState()
+    expec = np.abs(np.dot(phi, m_det))**2
+    rob_expec_samples.append(expec)
 
 # store data
 means = np.array(list(map(lambda x: np.mean(expec_samples[:x]), [*range(1,n_samples+1)])))
@@ -135,26 +143,25 @@ stds = np.array(list(map(lambda x: np.std(expec_samples[:x], ddof=1)/np.sqrt(x),
 stds = np.concatenate(([0], stds))
 xs = np.arange(n_samples)+1
 ys = np.abs(means - true_expec)
+
+rob_means = np.array(list(map(lambda x: np.mean(rob_expec_samples[:x]), [*range(1,n_samples+1)])))
+rob_stds = np.array(list(map(lambda x: np.std(rob_expec_samples[:x], ddof=1)/np.sqrt(x), [*range(2,n_samples+1)])))
+rob_stds = np.concatenate(([0], rob_stds))
+rob_ys = np.abs(rob_means - true_expec)
 ```
-We can plot the difference in expectation compared to that from the
-deterministic truncation. In the code below, we also compute the optimal
-density matrix using the method getOptimalTDState(). We will return
-to this in the next section.
+We can do then plot the difference in expectation compared to that from the
+deterministic truncation. 
 
 ```python
 # plot error in estimate from rtrunc against no. of samples
-plt.plot(xs, ys, '-', label='rtrunc estimate diff.', color='blue')
+plt.plot(xs, ys, '-', label='rtrunc (trace distance)', color='blue')
 plt.fill_between(xs, ys-stds, ys+stds, color='blue', alpha=0.2)
+
+plt.plot(xs, rob_ys, '-', label='rtrunc (robustness)', color='orange')
+plt.fill_between(xs, rob_ys-rob_stds, rob_ys+rob_stds, color='orange', alpha=0.2)
 
 # plot error in estimate from deterministic trunc.
 plt.plot(xs, np.ones(n_samples)*np.abs(det_trunc_expec - true_expec), '--', color='black', label='closed-form dtrunc. expec. diff.')
-
-# compute density matrix using closed-form expression
-sigma = tdo.getOptimalTDState()
-
-# plot error in estimate according to this density matrix
-sigma_expec = np.linalg.trace(np.dot(sigma, np.outer(m_det, m_det)))
-plt.plot(xs, np.ones(n_samples)*np.abs(sigma_expec - true_expec), '--', color='red', label='closed-form rtrunc expec. diff.')
 
 # show plot
 plt.xlabel('no. of samples')
@@ -167,7 +174,7 @@ plt.show()
 
 This gives:
 
-![trunc_estimate_img](static/img/trunc_estimate_1.png)
+![trunc_estimate_img](static/img/sampling_plot_1.png)
 
 
 ### Getting the optimal state
@@ -178,16 +185,6 @@ dimensions since we are generating an nxn matrix, but is useful for checking
 the output at smaller dimensions. With n=20 and k=12, we can use it to
 visualize the optimal approximation. This leads to the image at the
 beginning of this README.
-
-### Generating power law plots
-
-The example code in examples/power_law_example.py demonstrates how one
-might use the package to study the behaviour of the optimal approximation
-when the sorted entries of v follow a power law. We can plot the quality of
-the approximations for various rates of decay as a function of the best pure
-trace distance \epsilon.
-
-![power_law_plot](static/img/power_law_plot_1.png)
 
 ### Making that snazzy animation in this README file
 

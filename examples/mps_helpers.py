@@ -186,6 +186,14 @@ def entanglement_spectrum(psi, j, n, tol=1e-12):
 
     return spectrum
 
+def normalize(tensors):
+    new_tensors = []
+    norm = np.sqrt(mps_inner_prod(tensors, tensors))
+    n = len(tensors)
+    for j in range(n):
+        new_tensors.append(tensors[j] / norm**(1/n))
+    return new_tensors
+
 def get_random_mps(n,d,bond_dim):
     # create random mps
     tensors = []
@@ -210,11 +218,24 @@ def get_random_mps(n,d,bond_dim):
 def power_law_schmidt_coeffs(tensors, gamma):
     n = len(tensors)
     psi_tensors = copy.deepcopy(tensors)
-    for l in range(1,n-1):
+    for l in range(1,n):
         psi_can = mixed_canonical_form(psi_tensors, l)
         r = psi_can[l].shape[0]
         xs = np.arange(1,r+1)
         new_schmidts = xs**(-gamma)
+        new_schmidts = new_schmidts/np.linalg.norm(new_schmidts)
+        psi_can[l] = np.diag(new_schmidts)
+        psi_tensors = get_mps_tensors_from_canonical(psi_can)
+    return psi_tensors
+
+def squared_schmit_coeffs(tensors):
+    n = len(tensors)
+    psi_tensors = copy.deepcopy(tensors)
+    for l in range(1,n):
+        psi_can = mixed_canonical_form(psi_tensors, l)
+        r = psi_can[l].shape[0]
+        xs = np.arange(1,r+1)
+        new_schmidts = (r - xs + 1)**2
         new_schmidts = new_schmidts/np.linalg.norm(new_schmidts)
         psi_can[l] = np.diag(new_schmidts)
         psi_tensors = get_mps_tensors_from_canonical(psi_can)

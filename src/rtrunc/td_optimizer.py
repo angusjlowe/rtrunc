@@ -4,13 +4,16 @@ from .sampling import *
 from .helpers import *
 
 # Solve for the optimal randomized truncation in trace distance.
-# Assumes v is sorted in nonincreasing order
 class TDOptimizer():
     def __init__(self, k, v, verbose=0):
         self.k = k
 
         # sort in nonincreasing order of abs value, redundant
         self.v = -np.sort(-np.abs(v))
+
+        self.idx = np.argsort(-v)
+        self.inverse_idx = np.argsort(self.idx)
+        self.v = v[self.idx]
 
         # initiate intermediate values
         self.r=-1
@@ -135,8 +138,9 @@ class TDOptimizer():
     
     def sampleSubset(self, ps, n, k, tol=1e-4):
         if list(self.ws) == []:
-            self.ws = getWeightsFromCoverage(ps, n, k)
-        ws = np.clip(np.array(self.ws, dtype=float), tol, None)
+            self.ws = getWeightsFromCoverage(ps, k)
+        ws = self.ws
+        #ws = np.clip(np.array(self.ws, dtype=float), tol, None)
         S = list(range(n))
         A = []
 
@@ -198,19 +202,20 @@ class TDOptimizer():
         phi3 = np.zeros(self.n - self.l + 1)
         phi = np.concatenate((phi1, phi2, phi3))
         phi = phi/np.linalg.norm(phi)
-        return phi
+        return phi[self.inverse_idx]
+    
     
     def getLastBlock(self, theta, ps):
         k = self.k
         r = self.r
         l = self.l
-        ws = getWeightsFromCoverage(ps, l-k+r, r+1)
+        ws = getWeightsFromCoverage(ps, r+1)
         p2 = computePairMarginalFromWeights(r+1, ws)
         M = [[p2[i,j]*theta**2 for i in [*range(0, l-k+r)]]
          for j in [*range(0, l-k+r)]]
-        return np.array(M)
+        return np.array(M[np.ix_(self.inverse_idx)])
     
-    # output the optimal density matrix. Probably not useful in pracrtice.
+    # output the optimal density matrix. Probably not useful in practice.
     def getOptimalTDState(self):
         if len(self.m) < self.n:
             raise ValueError("m not yet computed. Run optimization first.")
@@ -231,5 +236,6 @@ class TDOptimizer():
         final = np.zeros((n, n))
         final[k-r-1:l-1,k-r-1:l-1] = self.getLastBlock(theta, ps)
         sigma = outerm + term2 + final
-        return sigma/np.linalg.trace(sigma)
+        return sigma[np.ix_(self.inverse_idx)]/np.linalg.trace(sigma)
+
 

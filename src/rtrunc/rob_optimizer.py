@@ -41,8 +41,9 @@ class RobustnessExperiment():
     
     def sampleSubset(self, ps, n, k, tol=1e-4):
         if list(self.ws) == []:
-            self.ws = getWeightsFromCoverage(ps, n, k)
-        ws = np.clip(np.array(self.ws, dtype=float), tol, None)
+            self.ws = getWeightsFromCoverage(ps, k)
+        ws = self.ws
+        #ws = np.clip(np.array(self.ws, dtype=float), tol, None)
         S = list(range(n))
         A = []
 
