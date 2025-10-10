@@ -166,10 +166,8 @@ plt.plot(xs, np.ones(n_samples)*np.abs(det_trunc_expec - true_expec),'--',
 
 # show plot
 plt.xlabel('no. of samples')
+plt.ylabel('error')
 plt.legend()
-title1 = "Estimating worst-case observable for $|v_{1:k}\\rangle$."
-title2 = " n={}, k={}.".format(n, k)
-plt.title(title1 + title2)
 plt.show()
 ```
 
