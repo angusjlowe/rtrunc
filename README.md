@@ -4,7 +4,7 @@
 
 <a href="https://github.com/angusjlowe/rtrunc">rtrunc</a> is a small package to compute randomized truncations of
 pure quantum states, optimized with respect to the following distance measures
-(as of the current version): (i) trace distance and (ii) robustness.
+(as of the current version): (i) trace distance and (ii) robustness.  The theory behind the code is in our paper <a href="https://arxiv.org/abs/2510.08518">arXiv:2510.08518</a>.
 
 <p align="center">
 <img src="static/img/density_matrix_plots.png" alt="density matrix plots" width="600"/>
