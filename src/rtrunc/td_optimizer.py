@@ -98,12 +98,16 @@ class TDOptimizer():
         a=np.array([])
         b=np.repeat(theta(r,l,t),l-k+r)
         c=np.array([])
-        if r!=k-1:
-            a=v[:k-r-1]/(1+t)
-        if l!=n+1:
-            c=v[l-1:]/t
-        mtilde=np.concatenate((a,b,c))
-        m=mtilde/np.linalg.norm(mtilde)
+        if t < 1e-14:
+            m = np.zeros(n)
+            m[0] = 1.
+        else:
+            if r!=k-1:
+                a=v[:k-r-1]/(1+t)
+            if l!=n+1:
+                c=v[l-1:]/t
+            mtilde=np.concatenate((a,b,c))
+            m=mtilde/np.linalg.norm(mtilde)
         return m
     
     # return optimal meas and td value as tuple (m,td)
@@ -167,7 +171,7 @@ class TDOptimizer():
 
             total = np.sum(q_el)
 
-            if total < tol:
+            if total < tol or np.isnan(total):
                 remaining = [j for j in Sel if j not in A]
                 if not remaining:
                     break
@@ -202,6 +206,10 @@ class TDOptimizer():
         phi3 = np.zeros(self.n - self.l + 1)
         phi = np.concatenate((phi1, phi2, phi3))
         phi = phi/(np.linalg.norm(phi)+1e-16)
+        if np.isnan(phi).any():
+            print("phi1 = {}, phi2={}, phi3={}".format(phi1,phi2,phi3))
+            print("k = {}, r = {}".format(self.k,self.r))
+            print("m = {}".format(self.m))
         return phi[self.inverse_idx]
     
     

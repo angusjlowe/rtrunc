@@ -62,7 +62,7 @@ def haar_random_state(d):
 n = 9
 d = 2
 bond_dim = 2**(n//2)
-gamma = 0.1
+gamma = 0.8
 n_samples = 100
 ks = np.arange(2,bond_dim+1,1)
 Z = np.array([[1,0],[0,-1]], dtype=float)
@@ -84,67 +84,16 @@ psi_tensors_original = tensor_to_fixedbond_mps(psi, d, n, bond_dim)
 psi_tensors_original = power_law_schmidt_coeffs(psi_tensors_original, gamma)
 
 psi_tensors_original = normalize(psi_tensors_original)
+psi_can = mixed_canonical_form(psi_tensors_original, n//2)
 
-# original expecs
-orig_expec = np.real(mps_expec(psi_tensors_original, psi_tensors_original, obs))
-print("true expec is {:.5f}".format(orig_expec))
-
-rtrunc_means = []
-rtrunc_stds = []
-rtrunc_subopt_means = []
-rtrunc_subopt_stds = []
-dtrunc_expecs = []
-for k in ks:
-    print("k={}".format(k))
-    print("Computing dtrunc expec")
-    # dtrunc state computation
-    psi_tensors = copy.deepcopy(psi_tensors_original)
-    for l in range(1,n):
-        psi_tensors = dtrunc(psi_tensors, k, l)
-        # dtrunc expecs
-    dtrunc_expec = np.real(mps_expec(psi_tensors, psi_tensors, obs))
-    print("dtrunc estimate is {:.5f}".format(dtrunc_expec))
-    dtrunc_expecs.append(dtrunc_expec)
-
-    # rtrunc states and expecs
-    print("Computing rtrunc states")
-    rtrunc_expecs = []
-    for j in range(n_samples):
-        if (j+1) % 10 == 0:
-            print("Samples collected: {}".format(j+1))
-        psi_tensors = copy.deepcopy(psi_tensors_original)
-        for l in range(1,n):
-            psi_tensors = rtrunc(psi_tensors, k, l)
-        trunc_expec = np.real(mps_expec(psi_tensors, psi_tensors, obs))
-        rtrunc_expecs.append(trunc_expec)
-    rtrunc_mean = np.mean(rtrunc_expecs)
-    print("rtrunc estimate is {:.5f}".format(rtrunc_mean))
-    rtrunc_std = np.std(rtrunc_expecs, ddof=1)/np.sqrt(n_samples)
-    rtrunc_means.append(rtrunc_mean)
-    rtrunc_stds.append(rtrunc_std)
+schmidts = np.diag(psi_can[n//2])
 
 import matplotlib.pyplot as plt
-from matplotlib.ticker import MaxNLocator
 plt.rcParams['text.usetex'] = True
 plt.rc('font', size=14)
-
-rtrunc_means = np.array(rtrunc_means)
-rtrunc_stds = np.array(rtrunc_stds)
-dtrunc_expecs = np.array(dtrunc_expecs)
-ax = plt.figure().gca()
-ax.xaxis.set_major_locator(MaxNLocator(integer=True))
-#plt.title("Dtrunc vs. rtrunc on random MPSs. bd = {}, k={}".format(bond_dim, k))
-plt.xlabel("bond dim. cutoff")
-plt.ylabel("$\\ \\langle Z_{5}\\rangle$ rel. error")
-#print("Plot things, yerr size = {}, means size = {}".format(len(rtrunc_stds), len(rtrunc_means)))
-plt.errorbar(ks, (rtrunc_means-orig_expec)/orig_expec, yerr=rtrunc_stds/np.abs(orig_expec),
-             fmt='o', label="rtrunc (TD)", capsize=4, color='blue')
-#plt.errorbar(ks, (rtrunc_subopt_means-orig_expec)/orig_expec, yerr=rtrunc_subopt_stds/np.abs(orig_expec),
-#             fmt='d', label='rtrunc (naive)', capsize=4, color='grey')
-plt.plot(ks, (dtrunc_expecs-orig_expec)/orig_expec, 's', label='dtrunc', color='red')
-#plt.plot(ks, np.ones(ks.size)*orig_expec, '--', label='true expec.')
-xs = np.arange(ks[0]-1,ks[-1]+1,0.1)
-plt.plot(ks, np.zeros(ks.size), '--', color='black')
-plt.title("MPS on {} sites, $\\gamma$={}".format(n, gamma))
-plt.legend()
-plt.savefig("mps_random_plot_1.pdf")
+edges = list(np.arange(bond_dim+1)+0.5)
+plt.xticks(list(np.arange(2,bond_dim+1,2)))
+plt.xlim(0.6,2**(n//2)+0.4)
+#plt.yticks([])
+plt.stairs(schmidts**2, color='black', linewidth=2, fill=False, edges=edges)
+plt.savefig("inlay_4.pdf")

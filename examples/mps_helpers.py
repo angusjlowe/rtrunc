@@ -1,6 +1,7 @@
 import numpy as np
 import copy
 
+import numpy as np
 
 def mps_expec(tensors1, tensors2, obs_tensors):
     n = len(tensors1)
@@ -50,7 +51,9 @@ def right_canonical_form(tensors):
     matrix = new_tensors[n-1]
     U, s, Vh = np.linalg.svd(matrix, full_matrices=False)
     norm = np.linalg.norm(s)
-    s_normalized = s / (norm + 1e-16)
+    s_normalized = s / (norm + 1e-14)
+    cut = 1e-12  # MPS tolerance to handle near-product case
+    s_normalized[s_normalized < cut] = 0.0
     S = np.diag(s_normalized)
     new_tensors[n-1] = Vh.reshape(-1,d)
     new_tensors[n-2] = norm*np.einsum('aib,bc,cd->aid', new_tensors[n-2], U, S)
@@ -62,7 +65,9 @@ def right_canonical_form(tensors):
         matrix = tensor.reshape(dims[0],-1)
         U, s, Vh = np.linalg.svd(matrix, full_matrices=False)
         norm = np.linalg.norm(s)
-        s_normalized = s / (norm + 1e-16)
+        s_normalized = s / (norm + 1e-14)
+        cut = 1e-12  # MPS tolerance to handle near-product case
+        s_normalized[s_normalized < cut] = 0.0
         S = np.diag(s_normalized)
         new_tensors[j] = Vh.reshape(-1, d, dims[2])
         US_matrix = np.einsum('bc,cd->bd', U, S)
@@ -74,7 +79,9 @@ def right_canonical_form(tensors):
     matrix = tensor.reshape(dims[0],-1)
     U, s, Vh = np.linalg.svd(matrix, full_matrices=False)
     norm = np.linalg.norm(s)
-    s_normalized = s / (norm + 1e-16)
+    s_normalized = s / (norm + 1e-14)
+    cut = 1e-12  # MPS tolerance to handle near-product case
+    s_normalized[s_normalized < cut] = 0.0
     S = np.diag(s_normalized)
     new_tensors[1] = Vh.reshape(-1, d, dims[2])
     new_tensors[0] = norm*np.einsum('ia,ab,bc->ic', new_tensors[0], U, S)
@@ -96,7 +103,9 @@ def mixed_canonical_form(tensors, l):
         matrix = new_tensors[0]
         U, s, Vh = np.linalg.svd(matrix, full_matrices=False)
         norm = np.linalg.norm(s)
-        s_normalized = s / (norm + 1e-16)
+        cut = 1e-12  # MPS tolerance to handle near-product case
+        s[s < cut] = 0.0
+        s_normalized = s / (norm + 1e-14)
         S = np.diag(s_normalized)
         new_tensors[0] = U
         new_tensors[1] = norm*np.einsum('ab,bc,cid->aid', S, Vh, new_tensors[1])
@@ -107,8 +116,10 @@ def mixed_canonical_form(tensors, l):
             tensor = new_tensors[j]
             matrix = tensor.reshape(-1, dims[-1])
             U, s, Vh = np.linalg.svd(matrix, full_matrices=False)
+            cut = 1e-12  # MPS tolerance to handle near-product case
+            s[s < cut] = 0.0
             norm = np.linalg.norm(s)
-            s_normalized = s / (norm + 1e-16)
+            s_normalized = s / (norm + 1e-14)
             S = np.diag(s_normalized)
             new_tensors[j] = U.reshape(dims[0], d, -1)
             new_tensors[j+1] = norm*np.einsum('ab,bc,cid->aid', S, Vh, new_tensors[j+1])
@@ -118,8 +129,10 @@ def mixed_canonical_form(tensors, l):
     tensor = new_tensors[l-1]
     matrix = tensor.reshape(-1, dims[-1])
     U, s, Vh = np.linalg.svd(matrix, full_matrices=False)
+    cut = 1e-12  # MPS tolerance to handle near-product case
+    s[s < cut] = 0.0
     norm = np.linalg.norm(s)
-    s_normalized = s / (norm + 1e-16)
+    s_normalized = s / (norm + 1e-14)
     Sl = np.diag(s_normalized)
     if l!=1:
         new_tensors[l-1] = U.reshape(dims[0], d, -1)
@@ -226,7 +239,7 @@ def get_random_mps(n,d,bond_dim):
     # normalize
     norm = np.sqrt(mps_inner_prod(tensors, tensors))
     for j in range(n):
-        tensors[j] = tensors[j] / (norm**(1/n)+1e-16)
+        tensors[j] = tensors[j] / (norm**(1/n)+1e-14)
     return tensors
 
 def power_law_schmidt_coeffs(tensors, gamma):
@@ -237,7 +250,7 @@ def power_law_schmidt_coeffs(tensors, gamma):
         r = psi_can[l].shape[0]
         xs = np.arange(1,r+1)
         new_schmidts = xs**(-gamma)
-        new_schmidts = new_schmidts/(np.linalg.norm(new_schmidts)+1e-16)
+        new_schmidts = new_schmidts/(np.linalg.norm(new_schmidts)+1e-14)
         psi_can[l] = np.diag(new_schmidts)
         psi_tensors = get_mps_tensors_from_canonical(psi_can)
     return psi_tensors
