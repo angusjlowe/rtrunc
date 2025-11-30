@@ -2,7 +2,11 @@ from mps_helpers import *
 import numpy as np
 from rtrunc import td_optimizer as tdo
 
-np.random.seed(44)
+np.random.seed(52)
+
+n = int(input("number of sites: "))
+numb = int(input("gamma setting number: "))
+gammas = [0.1, 0.2, 0.4, 0.8]
 
 def rtrunc(tensors, k, l):
     """"
@@ -15,7 +19,7 @@ def rtrunc(tensors, k, l):
     schmidts[schmidts < cut] = 0.0
     if k < schmidts.size:
         newTDOpt = tdo.TDOptimizer(k, schmidts)
-        m,td = newTDOpt.getOptimalTDMeas()
+        _,td = newTDOpt.getOptimalTDMeas()
         if td < 1e-12:
             new_schmidts = np.concatenate((schmidts[:k], np.zeros(schmidts.size-k)))
         else:
@@ -59,10 +63,9 @@ def haar_random_state(d):
     return psi
 
 # parameter setup
-n = 9
 d = 2
 bond_dim = 2**(n//2)
-gamma = 0.1
+gamma = gammas[numb-1]
 n_samples = 100
 ks = np.arange(2,bond_dim+1,1)
 Z = np.array([[1,0],[0,-1]], dtype=float)
@@ -74,7 +77,8 @@ Zs = [Z] * n
 Xs = [X] * n
 Is = [I] * n
 obs = Is
-obs[int(n/2)] = Z
+obs[4] = Z
+obs[5] = Z
 #obs[4] = Z
 #obs[8] = X
 
@@ -91,8 +95,6 @@ print("true expec is {:.5f}".format(orig_expec))
 
 rtrunc_means = []
 rtrunc_stds = []
-rtrunc_subopt_means = []
-rtrunc_subopt_stds = []
 dtrunc_expecs = []
 for k in ks:
     print("k={}".format(k))
@@ -123,28 +125,11 @@ for k in ks:
     rtrunc_means.append(rtrunc_mean)
     rtrunc_stds.append(rtrunc_std)
 
-import matplotlib.pyplot as plt
-from matplotlib.ticker import MaxNLocator
-plt.rcParams['text.usetex'] = True
-plt.rc('font', size=14)
+np.savez("mps_random_plot_{}.npz".format(numb),
+         orig_expec=orig_expec,
+         ks=ks,
+         rtrunc_means=np.array(rtrunc_means),
+         rtrunc_stds=np.array(rtrunc_stds),
+         dtrunc_expecs=np.array(dtrunc_expecs))
 
-rtrunc_means = np.array(rtrunc_means)
-rtrunc_stds = np.array(rtrunc_stds)
-dtrunc_expecs = np.array(dtrunc_expecs)
-ax = plt.figure().gca()
-ax.xaxis.set_major_locator(MaxNLocator(integer=True))
-#plt.title("Dtrunc vs. rtrunc on random MPSs. bd = {}, k={}".format(bond_dim, k))
-plt.xlabel("bond dim. cutoff")
-plt.ylabel("$\\ \\langle Z_{5}\\rangle$ rel. error")
-#print("Plot things, yerr size = {}, means size = {}".format(len(rtrunc_stds), len(rtrunc_means)))
-plt.errorbar(ks, (rtrunc_means-orig_expec)/orig_expec, yerr=rtrunc_stds/np.abs(orig_expec),
-             fmt='o', label="rtrunc (TD)", capsize=4, color='blue')
-#plt.errorbar(ks, (rtrunc_subopt_means-orig_expec)/orig_expec, yerr=rtrunc_subopt_stds/np.abs(orig_expec),
-#             fmt='d', label='rtrunc (naive)', capsize=4, color='grey')
-plt.plot(ks, (dtrunc_expecs-orig_expec)/orig_expec, 's', label='dtrunc', color='red')
-#plt.plot(ks, np.ones(ks.size)*orig_expec, '--', label='true expec.')
-xs = np.arange(ks[0]-1,ks[-1]+1,0.1)
-plt.plot(ks, np.zeros(ks.size), '--', color='black')
-plt.title("MPS on {} sites, $\\gamma$={}".format(n, gamma))
-plt.legend()
-plt.savefig("mps_random_plot_1.pdf")
+print("Saved results to mps_random_plot_{}.npz".format(numb))

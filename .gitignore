@@ -1,5 +1,7 @@
 myenv/
 *.pyc
+*.pdf
+*.npz
 *.egg-info/
 .vscode
 .pytest_cache
