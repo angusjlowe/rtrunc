@@ -8,53 +8,6 @@ n = int(input("number of sites: "))
 numb = int(input("gamma setting number: "))
 gammas = [0.1, 0.2, 0.4, 0.8]
 
-def rtrunc(tensors, k, l):
-    """"
-    Get random k-truncation at lth site. Expects l
-    between 1 and n-1.
-    """
-    new_tensors = mixed_canonical_form(tensors, l)
-    schmidts = np.diag(new_tensors[l]).copy()
-    cut = 1e-12  # MPS tolerance to handle near-product case
-    schmidts[schmidts < cut] = 0.0
-    if k < schmidts.size:
-        newTDOpt = tdo.TDOptimizer(k, schmidts)
-        _,td = newTDOpt.getOptimalTDMeas()
-        if td < 1e-12:
-            new_schmidts = np.concatenate((schmidts[:k], np.zeros(schmidts.size-k)))
-        else:
-            new_schmidts = newTDOpt.sampleOptimalTDState()
-    else:
-        new_schmidts = schmidts
-    new_schmidts[new_schmidts < cut] = 0.0
-    new_tensors[l] = np.diag(new_schmidts)
-    new_tensors = get_mps_tensors_from_canonical(new_tensors)
-    return new_tensors
-
-
-def dtrunc(tensors, k, l):
-    """"
-    Get deterministic k-truncation at lth site. Expects l
-    between 1 and n-1.
-    """
-    new_tensors = mixed_canonical_form(tensors, l)
-    #print("Just to be safe: (l+1)th tensor has shape: {}".format(new_tensors[l].shape))
-    schmidts = np.diag(new_tensors[l]).copy()
-    cut = 1e-12  # MPS tolerance to handle near-product case
-    schmidts[schmidts < cut] = 0.0
-    if k < schmidts.size:
-        new_schmidts = np.concatenate((schmidts[:k], np.zeros(schmidts.size-k)))
-    else:
-        new_schmidts = schmidts
-    new_schmidts = new_schmidts/np.linalg.norm(new_schmidts + 1e-16)
-    new_schmidts[new_schmidts < cut] = 0.0
-    #print(schmidts, new_schmidts)
-    #print(np.linalg.norm(schmidts), np.linalg.norm(new_schmidts))
-    new_tensors[l] = np.diag(new_schmidts)
-    new_tensors = get_mps_tensors_from_canonical(new_tensors)
-    return new_tensors
-
-
 def haar_random_state(d):
     # Draw complex Gaussian entries
     x = np.random.randn(d) + 1j * np.random.randn(d)
@@ -102,7 +55,7 @@ for k in ks:
     # dtrunc state computation
     psi_tensors = copy.deepcopy(psi_tensors_original)
     for l in range(1,n):
-        psi_tensors = dtrunc(psi_tensors, k, l)
+        psi_tensors = mps_dtrunc(psi_tensors, k, l)
         # dtrunc expecs
     dtrunc_expec = np.real(mps_expec(psi_tensors, psi_tensors, obs))
     print("dtrunc estimate is {:.5f}".format(dtrunc_expec))
@@ -116,7 +69,7 @@ for k in ks:
             print("Samples collected: {}".format(j+1))
         psi_tensors = copy.deepcopy(psi_tensors_original)
         for l in range(1,n):
-            psi_tensors = rtrunc(psi_tensors, k, l)
+            psi_tensors = mps_rtrunc(psi_tensors, k, l)
         trunc_expec = np.real(mps_expec(psi_tensors, psi_tensors, obs))
         rtrunc_expecs.append(trunc_expec)
     rtrunc_mean = np.mean(rtrunc_expecs)

@@ -2,6 +2,55 @@ import numpy as np
 import copy
 
 import numpy as np
+from rtrunc import td_optimizer as tdo
+
+
+def mps_rtrunc(tensors, k, l):
+    """"
+    Get random k-truncation at lth site. Expects l
+    between 1 and n-1.
+    """
+    new_tensors = mixed_canonical_form(tensors, l)
+    schmidts = np.diag(new_tensors[l]).copy()
+    cut = 1e-12  # MPS tolerance to handle near-product case
+    schmidts[schmidts < cut] = 0.0
+    if k < schmidts.size:
+        newTDOpt = tdo.TDOptimizer(k, schmidts)
+        _,td = newTDOpt.getOptimalTDMeas()
+        if td < 1e-12:
+            new_schmidts = np.concatenate((schmidts[:k], np.zeros(schmidts.size-k)))
+        else:
+            new_schmidts = newTDOpt.sampleOptimalTDState()
+    else:
+        new_schmidts = schmidts
+    new_schmidts[new_schmidts < cut] = 0.0
+    new_tensors[l] = np.diag(new_schmidts)
+    new_tensors = get_mps_tensors_from_canonical(new_tensors)
+    return new_tensors
+
+
+def mps_dtrunc(tensors, k, l):
+    """"
+    Get deterministic k-truncation at lth site. Expects l
+    between 1 and n-1.
+    """
+    new_tensors = mixed_canonical_form(tensors, l)
+    #print("Just to be safe: (l+1)th tensor has shape: {}".format(new_tensors[l].shape))
+    schmidts = np.diag(new_tensors[l]).copy()
+    cut = 1e-12  # MPS tolerance to handle near-product case
+    schmidts[schmidts < cut] = 0.0
+    if k < schmidts.size:
+        new_schmidts = np.concatenate((schmidts[:k], np.zeros(schmidts.size-k)))
+    else:
+        new_schmidts = schmidts
+    new_schmidts = new_schmidts/np.linalg.norm(new_schmidts + 1e-16)
+    new_schmidts[new_schmidts < cut] = 0.0
+    #print(schmidts, new_schmidts)
+    #print(np.linalg.norm(schmidts), np.linalg.norm(new_schmidts))
+    new_tensors[l] = np.diag(new_schmidts)
+    new_tensors = get_mps_tensors_from_canonical(new_tensors)
+    return new_tensors
+
 
 def mps_expec(tensors1, tensors2, obs_tensors):
     n = len(tensors1)

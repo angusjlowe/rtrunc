@@ -8,9 +8,7 @@ class TDOptimizer():
     def __init__(self, k, v, verbose=0):
         self.k = k
 
-        # sort in nonincreasing order of abs value, redundant
-        self.v = -np.sort(-np.abs(v))
-
+        # sort in nonincreasing order of abs value
         self.idx = np.argsort(-v)
         self.inverse_idx = np.argsort(self.idx)
         self.v = v[self.idx]
@@ -221,7 +219,8 @@ class TDOptimizer():
         p2 = computePairMarginalFromWeights(r+1, ws)
         M = [[p2[i,j]*theta**2 for i in [*range(0, l-k+r)]]
          for j in [*range(0, l-k+r)]]
-        return np.array(M[np.ix_(self.inverse_idx)])
+        return np.array(M)
+        
     
     # output the optimal density matrix. Probably not useful in practice.
     def getOptimalTDState(self):

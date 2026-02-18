@@ -2,11 +2,14 @@ import numpy as np
 from rtrunc import td_optimizer as rtrunc
 from rtrunc import rob_optimizer as rob_rtrunc
 import matplotlib.pyplot as plt
+import matplotlib
 plt.rcParams['text.usetex'] = True
 plt.rc('font', size=14)
 
-# matrix visualization
-from matplotlib import colors
+
+print("matplotlib file:", matplotlib.__file__)
+print("matplotlib version:", matplotlib.__version__)
+print("plt.plot:", plt.plot, type(plt.plot))
 
 n = 200
 k = 100
@@ -38,7 +41,6 @@ r = tdo.r
 l = tdo.l
 
 
-import matplotlib.pyplot as plt
 xs = np.arange(1, n+1, 1)
 xspartial = np.arange(k-r,l,1)
 plt.plot(xs, v, '--', label="$v$", color='blue')
@@ -47,8 +49,8 @@ plt.axvline(x=k-r, color='grey', linestyle=':')
 plt.axvline(x=l-1, color='grey', linestyle=':')
 plt.legend()
 plt.xlim((-10,210))
-plt.show()
-#plt.savefig('meas_vs_vector_plot_1.pdf')
+plt.savefig('meas_vs_vector_plot_1.pdf')
+plt.close()
 
 marginal = np.concatenate((np.ones(k-r-1), v[k-r-1:l-1]/theta(r,l,td) - td, np.zeros(n-l+1)))
 plt.plot(xs, marginal, '-', label='$q$', color='black')
@@ -56,6 +58,6 @@ plt.axvline(x=k-r, color='grey', linestyle=':')
 plt.axvline(x=l-1, color='grey', linestyle=':')
 plt.legend()
 plt.xlim((-10,210))
-#plt.savefig('meas_vs_vector_plot_2.pdf')
-plt.show()
+plt.savefig('meas_vs_vector_plot_2.pdf')
 print("k={}, r={}, l={}".format(k,r,l))
+plt.close()
