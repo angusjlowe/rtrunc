@@ -42,7 +42,7 @@ If this works, you should be good to go!
 
 Most of the example code in this section is contained in examples folder. The code
 to produce the grayscale density matrix plots above is contained in
-examples/density_matrix_plots.py.
+examples/density_matrix_plots.py.  The code to produce all the plots in our paper <a href="https://arxiv.org/abs/2510.08518">arXiv:2510.08518</a> is in examples/all_plots_in_paper.py.
 
 ### Computing the trace distance
 First, we'll import the necessary packages and create a random quantum

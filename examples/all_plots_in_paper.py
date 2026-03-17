@@ -1,3 +1,5 @@
+# This code will produce all the plots in the paper arXiv:2510.08518
+
 import numpy as np
 from rtrunc import td_optimizer as rtrunc
 from rtrunc import rob_optimizer as rob_rtrunc
