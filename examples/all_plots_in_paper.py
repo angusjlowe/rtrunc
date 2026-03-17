@@ -37,7 +37,7 @@ print(" Optimal pure TD approx: {}".format(np.sqrt(1-fid**2)))
 print("Solving TD optimization problem for k={}...".format(k))
 m,td = tdo.getOptimalTDMeas()
 
-input("Solved. Optimal randomized TD approx: {:4f}. Press enter to see plot.".format(td))
+print("Solved. Optimal randomized TD approx: {:4f}. Press enter to see plot.".format(td))
 m=list(m)
 
 sigma = tdo.getOptimalTDState()
@@ -108,7 +108,7 @@ print(" Optimal pure TD approx: {}".format(np.sqrt(1-fid**2)))
 print("Solving TD optimization problem for k={}...".format(k))
 m,td = tdo.getOptimalTDMeas()
 
-input("Solved. Optimal randomized TD approx: {:4f}. Press enter to see plot.".format(td))
+print("Solved. Optimal randomized TD approx: {:4f}. Press enter to see plot.".format(td))
 m=list(m)
 theta = tdo.theta
 k = tdo.k
@@ -219,14 +219,14 @@ for numb in range(4):
         rtrunc_means.append(rtrunc_mean)
         rtrunc_stds.append(rtrunc_std)
 
-    np.savez("mps_random_plot_{}.npz".format(numb),
+    np.savez("mps_random_plot_{}.npz".format(numb+1),
             orig_expec=orig_expec,
             ks=ks,
             rtrunc_means=np.array(rtrunc_means),
             rtrunc_stds=np.array(rtrunc_stds),
             dtrunc_expecs=np.array(dtrunc_expecs))
 
-    print("Saved results to mps_random_plot_{}.npz".format(numb))
+    print("Saved results to mps_random_plot_{}.npz".format(numb+1))
 
 # ----------------------------------------------------------------------
 # Figure 5 Plots
