@@ -59,7 +59,7 @@ def getWeightsFromCoverage(ps, k, max_iter=5000, tol=1e-6):
 
     for it in range(max_iter):
         if it > max_iter/2 and (it + 1) % 100==0:
-            print("On it: {}".format(it+1))
+            print("On it: {:<3} error: {:.7f}".format(it+1, error))
         # Compute expected marginals under current w
         log_ws = np.clip(log_ws, -MAX_LOG_EXP, MAX_LOG_EXP)
         expected_ps = computeSingleMarginalFromWeights(k, np.exp(log_ws))
@@ -125,3 +125,8 @@ def computePairMarginalFromWeights(k, ws):
     for i in range(n):
         p2[i,i] = p1[i]
     return p2
+
+def computeCorrelationsFromWeight(k, ws):
+    q = computeSingleMarginalFromWeights(k, ws)
+    return computePairMarginalFromWeights(k, ws) - np.outer(q,q)
+    
