@@ -55,7 +55,7 @@ def getWeightsFromCoverage(ps, k, max_iter=5000, tol=1e-6):
             ps[j] = tol
         if ps[j] > 1-tol:
             ps[j] = 1-tol
-    log_ws = np.log(ps.copy())
+    log_ws = np.log(ps.copy()). # replace with np.log(ps/(1-ps))
 
     for it in range(max_iter):
         if it > max_iter/2 and (it + 1) % 100==0:
@@ -69,6 +69,7 @@ def getWeightsFromCoverage(ps, k, max_iter=5000, tol=1e-6):
         if error < tol:
             break
 
+        # replace next 4 lines with diag_hessian = (expected_ps*(1-expected_ps)) + tol
         diag_hessian = (expected_ps*(1-expected_ps))
         for j in range(np.size(ps)):
             if diag_hessian[j] < tol:
@@ -98,6 +99,7 @@ def computeSingleMarginalFromWeights(k, ws):
         log_ek_minus_1 = log_partialWeight(k - 1, subset, ws)
         log_p = np.log(ws[i]) + log_ek_minus_1 - log_ek
         p1[i] = np.exp(log_p)
+   
     return p1
 
 
