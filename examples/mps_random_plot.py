@@ -1,6 +1,7 @@
 import numpy as np
 
 n = int(input("number of sites: "))
+n_samples = 100
 
 gammas = [0.1, 0.2, 0.4, 0.8]
 
@@ -45,15 +46,24 @@ for ax, (orig_expec, ks_data, rmean, rstd, dexpec, gamma_val) in zip(axs, datase
     ax.set_xlabel("bond dim. cutoff")
     ax.set_ylabel(r"$\langle Z_{5}Z_{6}\rangle$ rel. error")
 
-    # rtrunc with error bars
+    # rtrunc with sample error bars
     ax.errorbar(
         ks_data,
         (rmean - orig_expec) / abs(orig_expec),
-        yerr=rstd / abs(orig_expec),
+        yerr=rstd / abs(orig_expec) / np.sqrt(n_samples),
         fmt='o',
         capsize=4,
         color='blue',
         label="rtrunc (TD)"
+    )
+
+    # rtrunc raw errors
+    ax.fill_between(
+        ks_data,
+        (rmean - orig_expec + rstd) / abs(orig_expec),
+        (rmean - orig_expec - rstd) / abs(orig_expec),
+        color='blue',
+        alpha=0.1
     )
 
     # dtrunc

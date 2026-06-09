@@ -74,7 +74,7 @@ for k in ks:
         rtrunc_expecs.append(trunc_expec)
     rtrunc_mean = np.mean(rtrunc_expecs)
     print("rtrunc estimate is {:.5f}".format(rtrunc_mean))
-    rtrunc_std = np.std(rtrunc_expecs, ddof=1)/np.sqrt(n_samples)
+    rtrunc_std = np.std(rtrunc_expecs, ddof=1)
     rtrunc_means.append(rtrunc_mean)
     rtrunc_stds.append(rtrunc_std)
 

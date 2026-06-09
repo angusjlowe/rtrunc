@@ -48,7 +48,7 @@ det_trunc_expec = np.abs(np.dot(m_det, vtrunc))**2
 
 # sample using different randomized truncation schemes
 print("Begin sampling procedure...")
-n_samples = 1000
+n_samples = 300
 expec_samples = []
 rob_expec_samples = []
 for j in range(n_samples):

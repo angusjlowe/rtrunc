@@ -137,53 +137,6 @@ class TDOptimizer():
                         self.l=l
                         return self.m,t
         raise RuntimeError("Valid r and ell not found.")
-    
-    def sampleSubset(self, ps, n, k, tol=1e-4):
-        if list(self.ws) == []:
-            self.ws = getWeightsFromCoverage(ps, k)
-        ws = self.ws
-        #ws = np.clip(np.array(self.ws, dtype=float), tol, None)
-        S = list(range(n))
-        A = []
-
-        q_prev = ps / k
-        q_prev = np.clip(q_prev, 0, None)
-        q_prev /= np.sum(q_prev)
-        i1 = np.random.choice(S, size=1, p=q_prev)[0]
-        A.append(i1)
-
-        for el in range(1, k):
-            Sel = [j for j in S if j not in A]
-            i_prev = A[-1]
-            q_el = np.zeros(n)
-            denom_eps = tol
-
-            for j in Sel:
-                num = ws[i_prev] * q_prev[j] - ws[j] * q_prev[i_prev]
-                denom = (k - el) * (ws[i_prev] - ws[j]) * q_prev[i_prev]
-
-                if abs(denom) < denom_eps or q_prev[i_prev] == 0:
-                    q_el[j] = 0.0
-                else:
-                    q_el[j] = max(num / denom, 0.0)
-
-            total = np.sum(q_el)
-
-            if total < tol or np.isnan(total):
-                remaining = [j for j in Sel if j not in A]
-                if not remaining:
-                    break
-                ik = np.random.choice(remaining)
-                q_prev = ps / k
-            else:
-                q_el /= total
-                ik = np.random.choice(S, size=1, p=q_el)[0]
-                q_prev = q_el
-
-            A.append(int(ik))
-
-        return A
-
 
     # Samples a random pure state according to the max-entropy
     # distribution
@@ -195,8 +148,10 @@ class TDOptimizer():
         if list(self.ps) == []:
             self.ps = self.getMarginals()
         ps = self.ps
-        S = self.sampleSubset(ps, self.l-self.k+self.r, self.r+1)
-        phi1 = self.m[:self.k-self.r-1]
+        if list(self.ws) == []:
+            self.ws = getWeightsFromCoverage(ps, self.r+1)
+        S = sampleSubset(self.ws, ps, self.l-self.k+self.r, self.r+1)
+        phi1 = self.v[:self.k-self.r-1]/(1+self.t)
         phi2 = np.zeros(self.l-self.k+self.r,dtype=float)
         theta = self.theta(self.r, self.l, self.t)
         for idx in S:
