@@ -50,16 +50,16 @@ def getWeightsFromCoverage(ps, k, max_iter=5000, tol=1e-10):
         print("Not a valid set of coverage probabilities. sum = {} when k = {}".format(np.sum(ps), k))
         return None
     ps = np.array(ps)
-    #for j in range(np.size(ps)):
-    #    if ps[j] < tol:
-    #        ps[j] = tol
-    #    if ps[j] > 1-tol:
-    #        ps[j] = 1-tol
-    log_ws = np.log(ps.copy())
+    for j in range(np.size(ps)):
+        if ps[j] < tol:
+            ps[j] = tol
+        if ps[j] > 1-tol:
+            ps[j] = 1-tol
+    log_ws = np.log(ps.copy()) # replace with np.log(ps/(1-ps))
 
     for it in range(max_iter):
         if it > max_iter/2 and (it + 1) % 100==0:
-            print("On it: {}".format(it+1))
+            print("On it: {:<3} error: {:.7f}".format(it+1, error))
         # Compute expected marginals under current w
         log_ws = np.clip(log_ws, -MAX_LOG_EXP, MAX_LOG_EXP)
         expected_ps = computeSingleMarginalFromWeights_fast(k, np.exp(log_ws))
@@ -69,6 +69,7 @@ def getWeightsFromCoverage(ps, k, max_iter=5000, tol=1e-10):
         if error < tol:
             break
 
+        # replace next 4 lines with diag_hessian = (expected_ps*(1-expected_ps)) + tol
         diag_hessian = (expected_ps*(1-expected_ps))
         #for j in range(np.size(ps)):
         #    if diag_hessian[j] < tol:
@@ -142,6 +143,7 @@ def computeSingleMarginalFromWeights(k, ws):
         log_ek_minus_1 = log_partialWeight(k - 1, subset, ws)
         log_p = np.log(ws[i]) + log_ek_minus_1 - log_ek
         p1[i] = np.exp(log_p)
+   
     return p1
 
 

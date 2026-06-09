@@ -7,3 +7,9 @@ myenv/
 .pytest_cache
 .DS_Store
 __pycache__
+build/lib/rtrunc/__init__.py
+build/lib/rtrunc/helpers.py
+build/lib/rtrunc/random_subset_text_gif.py
+build/lib/rtrunc/rob_optimizer.py
+build/lib/rtrunc/sampling.py
+build/lib/rtrunc/td_optimizer.py
