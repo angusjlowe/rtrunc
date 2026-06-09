@@ -55,7 +55,7 @@ def getWeightsFromCoverage(ps, k, max_iter=5000, tol=1e-6):
             ps[j] = tol
         if ps[j] > 1-tol:
             ps[j] = 1-tol
-    log_ws = np.log(ps.copy()). # replace with np.log(ps/(1-ps))
+    log_ws = np.log(ps.copy()) # replace with np.log(ps/(1-ps))
 
     for it in range(max_iter):
         if it > max_iter/2 and (it + 1) % 100==0:
