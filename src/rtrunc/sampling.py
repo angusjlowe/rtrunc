@@ -55,7 +55,7 @@ def getWeightsFromCoverage(ps, k, max_iter=5000, tol=1e-10):
             ps[j] = tol
         if ps[j] > 1-tol:
             ps[j] = 1-tol
-    log_ws = np.log(ps.copy()) # replace with np.log(ps/(1-ps))
+    log_ws = np.log(ps/(1-ps))
 
     for it in range(max_iter):
         if it > max_iter/2 and (it + 1) % 100==0:
@@ -69,11 +69,7 @@ def getWeightsFromCoverage(ps, k, max_iter=5000, tol=1e-10):
         if error < tol:
             break
 
-        # replace next 4 lines with diag_hessian = (expected_ps*(1-expected_ps)) + tol
-        diag_hessian = (expected_ps*(1-expected_ps))
-        #for j in range(np.size(ps)):
-        #    if diag_hessian[j] < tol:
-        #        diag_hessian[j] = tol
+        diag_hessian = (expected_ps*(1-expected_ps)) + tol
         
         # Update step (gradient descent on dual)
         log_ws += 1/(diag_hessian + 1e-10) * (ps - expected_ps)
