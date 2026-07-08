@@ -48,6 +48,7 @@ def getWeightsFromCoverage(ps, k, max_iter=5000, tol=1e-5):
     """
     if abs(np.sum(ps) - k) > tol:
         print("Not a valid set of coverage probabilities. sum = {} when k = {}".format(np.sum(ps), k))
+
         return None
     ps = np.array(ps)
     for j in range(np.size(ps)):
@@ -55,7 +56,8 @@ def getWeightsFromCoverage(ps, k, max_iter=5000, tol=1e-5):
             ps[j] = tol
         if ps[j] > 1-tol:
             ps[j] = 1-tol
-    log_ws = np.log(ps)
+    log_ws = np.log(ps)  # Initialize log weights to log of marginals
+    log_ws -= np.mean(log_ws)
 
     for it in range(max_iter):
         if it > max_iter/2 and (it + 1) % 100==0:
@@ -69,7 +71,7 @@ def getWeightsFromCoverage(ps, k, max_iter=5000, tol=1e-5):
         if error < tol:
             break
 
-        diag_hessian = (expected_ps*(1-expected_ps)) + tol
+        diag_hessian = (expected_ps*(1-expected_ps))
         
         # Update step (gradient descent on dual)
         log_ws += 1/(diag_hessian + 1e-10) * (ps - expected_ps)

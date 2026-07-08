@@ -43,7 +43,7 @@ def mps_dtrunc(tensors, k, l):
         new_schmidts = np.concatenate((schmidts[:k], np.zeros(schmidts.size-k)))
     else:
         new_schmidts = schmidts
-    new_schmidts = new_schmidts/np.linalg.norm(new_schmidts + 1e-16)
+    new_schmidts = new_schmidts/(np.linalg.norm(new_schmidts)+ 1e-16)
     new_schmidts[new_schmidts < cut] = 0.0
     #print(schmidts, new_schmidts)
     #print(np.linalg.norm(schmidts), np.linalg.norm(new_schmidts))
@@ -267,7 +267,7 @@ def normalize(tensors):
     norm = np.sqrt(mps_inner_prod(tensors, tensors))
     n = len(tensors)
     for j in range(n):
-        new_tensors.append(tensors[j] / norm**(1/n))
+        new_tensors.append(tensors[j] / (norm**(1/n)))
     return new_tensors
 
 def get_random_mps(n,d,bond_dim):
