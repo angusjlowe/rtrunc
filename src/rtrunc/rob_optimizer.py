@@ -10,8 +10,9 @@ class RobustnessExperiment():
         self.r = rCompute(self.v, k)
         self.ps = (self.r+1)*self.v[k-self.r-1:]/pSum(k-self.r-1, self.v) # psum is zero indexed and want s_{k-r}
         if np.abs(np.sum(self.ps) - (self.r+1)) > 0.001:
-            print("Something went wrong: sum of ps is not r+1.")
-            print("sum is: {}".format(np.sum(self.ps)))
+            raise RuntimeError(
+                f"Marginal probabilities must sum to r+1={self.r+1}, got sum={np.sum(self.ps):.6g}"
+            )
 
         self.ws = []
 

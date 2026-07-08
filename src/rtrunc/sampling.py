@@ -1,3 +1,4 @@
+import logging
 import numpy as np
 from scipy.special import logsumexp
 
@@ -16,7 +17,7 @@ def log_partialWeight(k, C, ws):
     log_dp[0] = 0.0  # log(1)
 
     for log_w in log_ws:
-        # Use slicinxg and vectorized update instead of a loop
+        # Use slicing and vectorized update instead of a loop
         log_dp[1:k+1] = logsumexp(
             np.stack([
                 log_dp[1:k+1],        # without current w
@@ -27,55 +28,52 @@ def log_partialWeight(k, C, ws):
 
     return log_dp[k]
 
-def getWeightsFromCoverage(ps, k, max_iter=5000, tol=1e-5):
+def getWeightsFromCoverage(ps, k, max_iter=5000, tol=1e-5, init_mode=0,
+                           fixed_iters=False, return_error=False,
+                           return_history=False):
     """
-    Computes the vector w for the maximum entropy distribution over subsets of size k,
-    given specified marginals p, using computeSingleMarginalFromWeights() to compute marginals.
+    Computes weights w for the max-entropy k-DPP with specified marginals ps.
 
-    Parameters:
-    - ps: array-like, shape (N,)
-        Desired marginal probabilities (must sum to k).
-    - k: int
-        Target subset size.
-    - max_iter: int
-        Maximum number of iterations.
-    - tol: float
-        Convergence tolerance (L1 norm of marginal error).
-
-    Returns:
-    - ws: ndarray, shape (N,)
-        The exponential of the dual parameters defining the max-entropy distribution.
+    init_mode=0: initialise log_ws = log(ps)       (default, reliable)
+    init_mode=1: initialise log_ws = logit(ps)      (can oscillate when ps near 0/1)
     """
+    if return_history and return_error:
+        raise ValueError("return_history and return_error are mutually exclusive")
     if abs(np.sum(ps) - k) > tol:
-        print("Not a valid set of coverage probabilities. sum = {} when k = {}".format(np.sum(ps), k))
+        raise ValueError(
+            f"Coverage probabilities must sum to k={k}, got sum={np.sum(ps):.6g}"
+        )
 
-        return None
-    ps = np.array(ps)
-    for j in range(np.size(ps)):
-        if ps[j] < tol:
-            ps[j] = tol
-        if ps[j] > 1-tol:
-            ps[j] = 1-tol
-    log_ws = np.log(ps)  # Initialize log weights to log of marginals
+    ps = np.array(ps, dtype=float)
+    ps = np.clip(ps, tol, 1 - tol)
+
+    if init_mode == 0:
+        log_ws = np.log(ps)
+    else:
+        log_ws = np.log(ps / (1 - ps))
     log_ws -= np.mean(log_ws)
 
+    error = np.inf
+    history = [] if return_history else None
     for it in range(max_iter):
-        if it > max_iter/2 and (it + 1) % 100==0:
-            print("On it: {:<3} error: {:.7f}".format(it+1, error))
-        # Compute expected marginals under current w
+        if it > max_iter / 2 and (it + 1) % 100 == 0:
+            logging.warning("getWeightsFromCoverage: slow convergence at iteration %d, error=%.7f", it + 1, error)
         log_ws = np.clip(log_ws, -MAX_LOG_EXP, MAX_LOG_EXP)
         expected_ps = computeSingleMarginalFromWeights_fast(k, np.exp(log_ws))
 
-        # Check convergence
         error = np.linalg.norm(expected_ps - ps, 1)
-        if error < tol:
+        if return_history:
+            history.append(error)
+        if not fixed_iters and error < tol:
             break
 
-        diag_hessian = (expected_ps*(1-expected_ps))
-        
-        # Update step (gradient descent on dual)
-        log_ws += 1/(diag_hessian + 1e-10) * (ps - expected_ps)
+        diag_hessian = np.maximum(expected_ps * (1 - expected_ps), 1e-2)
+        log_ws += (ps - expected_ps) / diag_hessian
 
+    if return_history:
+        return np.exp(log_ws), history
+    if return_error:
+        return np.exp(log_ws), error
     return np.exp(log_ws)
 
 
@@ -98,8 +96,7 @@ def computeSingleMarginalFromWeights_fast(k, ws):
     for i in range(n):
         F[i + 1, 0] = 0.0
         m = min(k, i + 1)
-        for r in range(1, m + 1):
-            F[i + 1, r] = np.logaddexp(F[i, r], F[i, r - 1] + log_ws[i])
+        F[i + 1, 1:m + 1] = np.logaddexp(F[i, 1:m + 1], F[i, 0:m] + log_ws[i])
 
     # B[i, r] = log elementary symmetric sum of degree r
     # using ws[i], ..., ws[n-1]
@@ -109,39 +106,15 @@ def computeSingleMarginalFromWeights_fast(k, ws):
     for i in range(n - 1, -1, -1):
         B[i, 0] = 0.0
         m = min(k, n - i)
-        for r in range(1, m + 1):
-            B[i, r] = np.logaddexp(B[i + 1, r], B[i + 1, r - 1] + log_ws[i])
+        B[i, 1:m + 1] = np.logaddexp(B[i + 1, 1:m + 1], B[i + 1, 0:m] + log_ws[i])
 
     log_ek = F[n, k]
 
-    p1 = np.zeros(n)
-    for i in range(n):
-        terms = F[i, :k] + B[i + 1, k - 1::-1]
-        log_ek_minus_1_excluding_i = logsumexp(terms)
-        p1[i] = np.exp(log_ws[i] + log_ek_minus_1_excluding_i - log_ek)
+    # For each i, we need logsumexp(F[i, :k] + B[i+1, k-1::-1]).
+    # Stack all n rows into one (n, k) matrix and call logsumexp once.
+    combined = F[:n, :k] + B[1:, k - 1::-1]   # shape (n, k)
+    p1 = np.exp(log_ws + logsumexp(combined, axis=1) - log_ek)
 
-    return p1
-
-
-def computeSingleMarginalFromWeights(k, ws):
-    ws = np.array(ws, dtype=float)
-    n = ws.size
-    S = list(range(n))
-
-    # Compute log Z(S)
-    log_ek = log_partialWeight(k, S, ws)
-
-    # Pre-allocate marginals
-    p1 = np.zeros(n)
-
-    # Compute single marginals using formula from lemma
-    for i in S:
-        subset = S.copy()
-        subset.remove(i)
-        log_ek_minus_1 = log_partialWeight(k - 1, subset, ws)
-        log_p = np.log(ws[i]) + log_ek_minus_1 - log_ek
-        p1[i] = np.exp(log_p)
-   
     return p1
 
 
@@ -150,13 +123,10 @@ def computePairMarginalFromWeights(k, ws):
     ws = np.array(ws, dtype=float)
     n = ws.size
     S = list(range(n))
-    # Compute log e_k(S)
     log_ek = log_partialWeight(k, S, ws)
 
-    # pre-allocate marginals
     p2 = np.zeros((n, n))
 
-    # Compute double marginals
     for i in range(n):
         for j in range(i + 1, n):
             subset = S.copy()
@@ -165,43 +135,16 @@ def computePairMarginalFromWeights(k, ws):
             log_ek_minus_2 = log_partialWeight(k - 2, subset, ws)
             log_p = np.log(ws[i]) + np.log(ws[j]) + log_ek_minus_2 - log_ek
             p2[i, j] = p2[j, i] = np.exp(log_p)
-    p1 = computeSingleMarginalFromWeights(k, ws)
+
+    p1 = computeSingleMarginalFromWeights_fast(k, ws)
     for i in range(n):
-        p2[i,i] = p1[i]
+        p2[i, i] = p1[i]
     return p2
 
 
-def elementary_symmetric(weights, max_degree):
-    """
-    e[m] = sum_{|B|=m} prod_{i in B} weights[i].
-    """
-    e = np.zeros(max_degree + 1, dtype=float)
-    e[0] = 1.0
-    for w in weights:
-        # update backwards
-        for m in range(max_degree, 0, -1):
-            e[m] += w * e[m - 1]
-    return e
-
-def R_without_j(ws, C, j, degree):
-    """
-    Compute R(degree, C \\ {j}).
-    """
-    C_without_j = [i for i in C if i != j]
-    if degree < 0:
-        return 0.0
-    if degree == 0:
-        return 1.0
-    if degree > len(C_without_j):
-        return 0.0
-    e = elementary_symmetric(ws[C_without_j], degree)
-    return e[degree]
-
 def sampleSubset(ws, ps, n, k, tol=1e-4):
-        if list(ws) == []:
+        if len(ws) == 0:
             ws = getWeightsFromCoverage(ps, k)
-        ws = ws
-        #ws = np.clip(np.array(ws, dtype=float), tol, None)
         S = list(range(n))
         A = []
 

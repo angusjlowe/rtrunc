@@ -41,6 +41,9 @@ def rCompute(vs, k):
     rs = np.array([*range(0, k)])
     filter = list(map(lambda r: upperTest(vs, k ,r) and lowerTest(vs, k, r), rs))
     res = rs[filter]
-    if len(res)!=1:
-        print("Note: something went wrong computing the unique integer r.")
+    if len(res) != 1:
+        raise RuntimeError(
+            f"Expected exactly one valid r value, found {len(res)}: {res}. "
+            f"Check that vs is sorted and non-negative."
+        )
     return res[0]

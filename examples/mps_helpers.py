@@ -43,7 +43,7 @@ def mps_dtrunc(tensors, k, l):
         new_schmidts = np.concatenate((schmidts[:k], np.zeros(schmidts.size-k)))
     else:
         new_schmidts = schmidts
-    new_schmidts = new_schmidts/(np.linalg.norm(new_schmidts)+ 1e-16)
+    new_schmidts = new_schmidts/(np.linalg.norm(new_schmidts) + 1e-16)
     new_schmidts[new_schmidts < cut] = 0.0
     #print(schmidts, new_schmidts)
     #print(np.linalg.norm(schmidts), np.linalg.norm(new_schmidts))
@@ -302,6 +302,8 @@ def power_law_schmidt_coeffs(tensors, gamma):
         new_schmidts = new_schmidts/(np.linalg.norm(new_schmidts)+1e-14)
         psi_can[l] = np.diag(new_schmidts)
         psi_tensors = get_mps_tensors_from_canonical(psi_can)
+    norm = np.sqrt(np.real(mps_inner_prod(psi_tensors, psi_tensors)))
+    psi_tensors[0] = psi_tensors[0] / norm
     return psi_tensors
 
 

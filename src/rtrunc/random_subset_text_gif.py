@@ -6,6 +6,8 @@ Author: ChatGPT + humans.  It is very unlikely to turn your computer into a pape
 This code requires the file DejaVuSans.ttf, which you can get from https://dejavu-fonts.github.io/
 """
 
+import logging
+
 from PIL import Image, ImageDraw, ImageFont
 import random
 import argparse
@@ -143,7 +145,7 @@ def generate_gif(
             font = ImageFont.truetype("DejaVuSans.ttf", font_size)
         except Exception:
             font = ImageFont.load_default()
-            print("font exception")
+            logging.warning("Could not load DejaVuSans.ttf; falling back to default font")
 
     glyphs, total_height = layout_glyphs(
         text=text, font=font, max_width=max(1, width - margin * 2),

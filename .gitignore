@@ -13,3 +13,4 @@ build/lib/rtrunc/random_subset_text_gif.py
 build/lib/rtrunc/rob_optimizer.py
 build/lib/rtrunc/sampling.py
 build/lib/rtrunc/td_optimizer.py
+*.prof

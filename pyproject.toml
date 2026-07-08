@@ -18,6 +18,7 @@ classifiers = [
 dependencies = [
     "requests",
     "numpy>=2.2.6",
+    "scipy",
     "matplotlib>=3.10",
     "pytest"
 ]

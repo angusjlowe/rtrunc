@@ -1,7 +1,57 @@
 import numpy as np
-from numpy.polynomial import Polynomial
 from .sampling import *
 from .helpers import *
+
+
+def _solve_cubic_01(c0, c1, c2, c3):
+    """
+    Real roots in [0, 1] of c0 + c1*x + c2*x^2 + c3*x^3 = 0.
+
+    Uses the depressed-cubic / trigonometric method for three real roots and
+    Cardano's formula for one real root, avoiding companion-matrix eigenvalues.
+    """
+    EPS = 1e-12
+
+    if abs(c3) < EPS:
+        # Degenerate: quadratic or linear
+        if abs(c2) < EPS:
+            if abs(c1) < EPS:
+                return []
+            x = -c0 / c1
+            return [x] if 0.0 <= x <= 1.0 else []
+        disc = c1*c1 - 4.0*c2*c0
+        if disc < 0.0:
+            return []
+        sq = np.sqrt(disc)
+        return [x for x in [(-c1 + sq) / (2.0*c2), (-c1 - sq) / (2.0*c2)]
+                if 0.0 <= x <= 1.0]
+
+    # Normalise to monic x^3 + A*x^2 + B*x + C = 0
+    A, B, C = c2 / c3, c1 / c3, c0 / c3
+
+    # Depress via x = t - A/3, giving t^3 + p*t + q = 0
+    shift = A / 3.0
+    p = B - A*A / 3.0
+    q = C - A*B / 3.0 + 2.0*A**3 / 27.0
+
+    disc = -4.0*p**3 - 27.0*q**2   # > 0: three real roots; < 0: one real root
+
+    if disc >= 0.0:
+        # Trigonometric method (three real roots; p <= 0 guaranteed when disc >= 0)
+        m = 2.0 * np.sqrt(max(-p / 3.0, 0.0))
+        if m < EPS:
+            ts = [0.0]
+        else:
+            arg = np.clip(3.0*q / (p * m), -1.0, 1.0)
+            theta = np.arccos(arg) / 3.0
+            ts = [m * np.cos(theta - 2.0*np.pi*k / 3.0) for k in range(3)]
+    else:
+        # Cardano's formula (one real root)
+        sqrt_term = np.sqrt(-disc / 108.0)
+        t = np.cbrt(-q / 2.0 + sqrt_term) + np.cbrt(-q / 2.0 - sqrt_term)
+        ts = [t]
+
+    return [t - shift for t in ts if 0.0 <= t - shift <= 1.0]
 
 # Solve for the optimal randomized truncation in trace distance.
 class TDOptimizer():
@@ -37,14 +87,12 @@ class TDOptimizer():
         # with a,b,c,d,e defined as below, the cubic norm eqn to be satisfied becomes
         # a/(1+x) + b/(d+ex) + c/x - 1 = 0, which is equivalent to the polynomial
         # -ex^3+(b-d-e+ae+ce)x^2+(b-d+ad+c(d+e))x + cd = 0.
-        k = self.k
         a = self.a
         b = (self.b0 - self.b1)**2
         c = self.c
-        d, e = r+1, l-k+r
+        d, e = r+1, l-self.k+r
         c0, c1, c2, c3 = c*d, (b-d+a*d+c*(d+e)), (b-d-e+a*e+c*e), -e
-        cubic = Polynomial([c0, c1, c2, c3])
-        return list(filter(lambda x: np.isreal(x) and 0<=x<=1, cubic.roots()))
+        return _solve_cubic_01(c0, c1, c2, c3)
 
     def theta(self,r,l,t):
         k=self.k
@@ -145,6 +193,14 @@ class TDOptimizer():
             raise ValueError("r not yet computed. Run optimization first.")
         if self.m_top_k_norm == -1:
             self.m_top_k_norm = topKNorm(self.k, self.m)
+        if self.l - self.k + self.r == 0:
+            # Middle block is empty: degenerate case where the optimal
+            # truncation is deterministic, no sampling needed.
+            phi1 = self.v[:self.k-self.r-1] / (1 + self.t)
+            phi3 = np.zeros(self.n - self.l + 1)
+            phi = np.concatenate((phi1, phi3))
+            phi = phi / (np.linalg.norm(phi) + 1e-16)
+            return phi[self.inverse_idx]
         if list(self.ps) == []:
             self.ps = self.getMarginals()
         ps = self.ps
@@ -160,9 +216,10 @@ class TDOptimizer():
         phi = np.concatenate((phi1, phi2, phi3))
         phi = phi/(np.linalg.norm(phi)+1e-16)
         if np.isnan(phi).any():
-            print("phi1 = {}, phi2={}, phi3={}".format(phi1,phi2,phi3))
-            print("k = {}, r = {}".format(self.k,self.r))
-            print("m = {}".format(self.m))
+            raise RuntimeError(
+                f"sampleOptimalTDState produced NaN: k={self.k}, r={self.r}, "
+                f"phi1={phi1}, phi2={phi2}, phi3={phi3}, m={self.m}"
+            )
         return phi[self.inverse_idx]
     
     
